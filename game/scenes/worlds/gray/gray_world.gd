@@ -18,11 +18,14 @@ extends Node3D
 @export var steep_hill_position: Vector2 = Vector2(18.0, -14.0)  # 開始地点の右前
 @export var steep_hill_radius: float = 10.0
 @export var steep_hill_height: float = 17.0  # 半径10で高さ17 → 約60度（登れない）
+@export var test_area_center: Vector2 = Vector2(-22.0, -18.0)  # 坂と崖の検証エリア（開始地点の左前）
+@export var test_area_height: float = 7.0
 
 @onready var environment: WorldEnvironment = $WorldEnvironment
 @onready var landmarks: Node3D = $Landmarks
 @onready var terrain_mesh: MeshInstance3D = $Terrain/MeshInstance3D
 @onready var terrain_shape: CollisionShape3D = $Terrain/CollisionShape3D
+@onready var test_area: Node3D = $TestArea
 
 var _box_material: StandardMaterial3D
 var _heights: PackedFloat32Array
@@ -34,6 +37,7 @@ func _ready() -> void:
 	_box_material.albedo_color = Color(0.42, 0.43, 0.46)
 	_box_material.roughness = 0.95
 	_build_terrain()
+	_build_test_area()
 	_spawn_landmarks()
 
 
@@ -83,6 +87,8 @@ func _build_terrain() -> void:
 			# 急斜面の山の周りはノイズを消して、斜面の角度をはっきりさせる
 			var amp := smoothstep(flat_radius, flat_radius * 3.0, r) * hill_height
 			amp *= smoothstep(steep_hill_radius, steep_hill_radius + 8.0, d)
+			# 検証エリアの周りも平らにする
+			amp *= smoothstep(22.0, 30.0, Vector2(x, z).distance_to(test_area_center))
 			var h := noise.get_noise_2d(x, z) * amp
 			h += steep_hill_height * clampf(1.0 - d / steep_hill_radius, 0.0, 1.0)
 			_heights[iz * _grid_n + ix] = h
@@ -114,6 +120,66 @@ func _build_terrain() -> void:
 	terrain_shape.scale = Vector3(terrain_cell, 1.0, terrain_cell)
 
 
+# ---------------------------------------------------------------- 検証エリア
+## 高さ test_area_height の台地。開始地点側（+Z）に 30度の登り坂、-X 側に 42度の登り坂、
+## -Z 側に 50度の下り坂（登れない）、+X 側は崖（そのまま落ちる）。
+func _build_test_area() -> void:
+	var c := Vector3(test_area_center.x, 0.0, test_area_center.y)
+	var h := test_area_height
+	var mat: Material = terrain_mesh.material_override
+	var size := Vector3(16.0, h, 14.0)
+	_add_world_box(c + Vector3(0, h * 0.5, 0), size, Vector3.ZERO, mat)
+	# 坂: (面までの距離, 角度, 方向) 方向は台地の中心から見た向き
+	var ramps := [
+		[size.z * 0.5, 30.0, Vector3(0, 0, 1)],    # +Z（開始地点側）30度
+		[size.x * 0.5, 42.0, Vector3(-1, 0, 0)],   # -X 42度（登れる限界の少し手前）
+		[size.z * 0.5, 50.0, Vector3(0, 0, -1)],   # -Z 50度（登れない = 急な下り坂）
+	]
+	var thickness := 1.0
+	for ramp in ramps:
+		var face_dist: float = ramp[0]
+		var angle_deg: float = ramp[1]
+		var dir: Vector3 = ramp[2]
+		var a := deg_to_rad(angle_deg)
+		# 坂の上面: 台地の縁の少し内側・少し上（A）から、地面の少し下（B）まで。
+		# 上端を台地より高くするのは、カプセルが数 cm の段差でも「壁」と判定して止まるため。
+		var top_lift := 0.22
+		var bury := 0.3
+		var A := c + dir * (face_dist - 0.3) + Vector3(0, h + top_lift, 0)
+		var B := c + dir * (face_dist + (h + top_lift + bury) / tan(a)) + Vector3(0, -bury, 0)
+		var n := Vector3(0, cos(a), 0) + dir * sin(a)   # 上面の法線
+		var length := (A - B).length()
+		var center := (A + B) * 0.5 - n * (thickness * 0.5)
+		var box_size: Vector3
+		var rot: Vector3
+		if dir.z != 0.0:
+			box_size = Vector3(6.0, thickness, length)
+			rot = Vector3(a * dir.z, 0, 0)
+		else:
+			box_size = Vector3(length, thickness, 6.0)
+			rot = Vector3(0, 0, -a * dir.x)
+		_add_world_box(center, box_size, rot, mat)
+
+
+func _add_world_box(pos: Vector3, size: Vector3, rot: Vector3, mat: Material) -> void:
+	var body := StaticBody3D.new()
+	body.collision_layer = 1  # 地形と同じ扱い（カメラも避ける）
+	body.position = pos
+	body.rotation = rot
+	var mesh := MeshInstance3D.new()
+	var box := BoxMesh.new()
+	box.size = size
+	mesh.mesh = box
+	mesh.material_override = mat
+	body.add_child(mesh)
+	var shape := CollisionShape3D.new()
+	var box_shape := BoxShape3D.new()
+	box_shape.size = size
+	shape.shape = box_shape
+	body.add_child(shape)
+	test_area.add_child(body)
+
+
 # ---------------------------------------------------------------- 目印
 func _spawn_landmarks() -> void:
 	var rng := RandomNumberGenerator.new()
@@ -131,6 +197,8 @@ func _spawn_landmarks() -> void:
 			x += 8.0
 		if Vector2(x, z).distance_to(steep_hill_position) < steep_hill_radius + 3.0:
 			z += steep_hill_radius + 6.0
+		if Vector2(x, z).distance_to(test_area_center) < 26.0:
+			x -= 30.0
 		var pos := Vector3(x, get_ground_height(x, z) + size.y * 0.5 - 0.5, z)
 		_add_box(pos, size, rng.randf_range(0.0, TAU))
 

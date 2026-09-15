@@ -8,6 +8,7 @@ extends CharacterBody3D
 @onready var camera_rig: Node3D = $CameraRig
 
 var _speed: float = 0.0
+var _prev_body_yaw: float = 0.0
 
 
 func _ready() -> void:
@@ -58,4 +59,6 @@ func _physics_process(delta: float) -> void:
 
 	body.visible = not camera_rig.first_person
 	move_and_slide()
-	traveler.update_motion(Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y, delta)
+	var yaw_rate := angle_difference(_prev_body_yaw, body.rotation.y) / delta
+	_prev_body_yaw = body.rotation.y
+	traveler.update_motion(Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y, yaw_rate, delta)

@@ -38,6 +38,20 @@ var mouse_sensitivity: float = 0.15   # 度 / ピクセル
 var stick_sensitivity: float = 150.0  # 度 / 秒（右スティック）
 var invert_y: bool = false
 
+# ---- 仮キャラの体型（倍率。1.0 が基準）----
+var body_scale: float = 1.0
+var leg_length: float = 1.0
+var arm_length: float = 1.0
+var head_size: float = 1.0
+var hat_size: float = 1.0
+
+# ---- 仮キャラの動き ----
+var anim_stride_walk: float = 0.62   # 歩きの1歩の長さ m
+var anim_stride_run: float = 1.05    # 走りの1歩の長さ m
+var anim_arm_swing: float = 1.0      # 腕の振りの倍率
+var anim_bounce: float = 1.0         # 上下動の倍率
+var anim_lean_run: float = 12.0      # 走りの前傾（度）
+
 # ---- 風景 ----
 var fog_density: float = 0.012     # フォグの濃さ（大きいほど近くまで霞む）
 
@@ -64,6 +78,16 @@ const RANGES := {
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
 	"occluder_fade": [0.0, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
+	"body_scale": [0.7, 1.4, 0.01],
+	"leg_length": [0.7, 1.4, 0.01],
+	"arm_length": [0.7, 1.4, 0.01],
+	"head_size": [0.7, 1.4, 0.01],
+	"hat_size": [0.6, 1.6, 0.01],
+	"anim_stride_walk": [0.4, 0.9, 0.01],
+	"anim_stride_run": [0.7, 1.5, 0.01],
+	"anim_arm_swing": [0.0, 2.0, 0.05],
+	"anim_bounce": [0.0, 2.0, 0.05],
+	"anim_lean_run": [0.0, 25.0, 0.5],
 }
 
 # デバッグパネル用: 選択式の設定。変数名 -> 選択肢の名前（値はその index）

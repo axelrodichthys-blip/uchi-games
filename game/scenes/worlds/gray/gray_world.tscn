@@ -42,6 +42,8 @@ material_override = SubResource("ShaderMaterial_ground")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain"]
 
+[node name="TestArea" type="Node3D" parent="."]
+
 [node name="Landmarks" type="Node3D" parent="."]
 
 [node name="Player" parent="." instance=ExtResource("2_player")]

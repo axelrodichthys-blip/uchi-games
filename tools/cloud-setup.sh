@@ -89,7 +89,7 @@ if [ "$WITH_BLENDER" = "1" ]; then
     SUDO=""; [ "$(id -u)" != "0" ] && SUDO="sudo"
     # 一部 PPA が壊れていても止まらないように update の失敗は無視する
     $SUDO apt-get update -qq 2>/dev/null || true
-    $SUDO apt-get install -y -qq --no-install-recommends blender >/dev/null
+    $SUDO apt-get install -y -qq --no-install-recommends blender python3-numpy >/dev/null  # numpy は glTF 書き出しに必要
   fi
 fi
 

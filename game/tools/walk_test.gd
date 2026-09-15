@@ -58,4 +58,42 @@ func _ready() -> void:
 	var slide_ok := slid > 3.0
 	print("[walk_test] 急斜面で滑る: %s" % ("OK" if slide_ok else "NG"))
 
-	get_tree().quit(0 if (ok and jump_ok and slide_ok) else 1)
+	# 検証エリア: 30度の坂を登って台地に上がれるか
+	player.global_position = Vector3(-22.0, 0.5, 5.0)
+	player.velocity = Vector3.ZERO
+	Input.action_press("move_forward")
+	for i in 600:
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	var ramp_y := player.global_position.y
+	print("[walk_test] 30度の坂: 10秒前進後の高さ %.2f m 位置=%s" % [ramp_y, str(player.global_position.snapped(Vector3(0.1, 0.1, 0.1)))])
+	var ramp_ok := ramp_y > 6.8 and player.global_position.z < -12.0
+	print("[walk_test] 30度の坂を登る: %s" % ("OK" if ramp_ok else "NG"))
+
+	# 検証エリア: 崖から落ちる
+	player.global_position = Vector3(-15.5, 7.6, -18.0)
+	player.velocity = Vector3.ZERO
+	Input.action_press("move_right")
+	for i in 150:
+		await get_tree().physics_frame
+	Input.action_release("move_right")
+	var cliff_y := player.global_position.y
+	print("[walk_test] 崖: 2.5秒後の高さ %.2f m 接地=%s" % [cliff_y, str(player.is_on_floor())])
+	var cliff_ok := cliff_y < 1.0 and player.is_on_floor()
+	print("[walk_test] 崖から落ちて着地: %s" % ("OK" if cliff_ok else "NG"))
+
+	# 検証エリア: 50度の下り坂を滑り降りる
+	player.global_position = Vector3(-22.0, 7.6, -24.0)
+	player.velocity = Vector3.ZERO
+	Input.action_press("move_forward")
+	for i in 60:
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	for i in 180:
+		await get_tree().physics_frame
+	var down_y := player.global_position.y
+	print("[walk_test] 50度の下り坂: 4秒後の高さ %.2f m 位置=%s" % [down_y, str(player.global_position.snapped(Vector3(0.1, 0.1, 0.1)))])
+	var down_ok := down_y < 1.0
+	print("[walk_test] 50度の下り坂を降りる: %s" % ("OK" if down_ok else "NG"))
+
+	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok) else 1)
