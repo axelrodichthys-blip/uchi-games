@@ -1,5 +1,7 @@
 extends CharacterBody3D
 ## 仮キャラ（カプセル）。カメラの向きを基準に WASD / 左スティックで移動する。
+## 斜面: slope_max_angle より緩い坂は歩いて登れる。急な坂は壁扱いで滑り落ちる。
+## 身体は常に垂直に立つ（一般的な3Dゲームと同じ。地面の傾きに合わせて身体は傾けない）。
 
 @onready var body: Node3D = $Body
 @onready var camera_rig: Node3D = $CameraRig
@@ -8,24 +10,19 @@ var _speed: float = 0.0
 
 
 func _ready() -> void:
-	# 起動直後はマウスを掴まない（ブラウザではクリックが必要）。HUD に案内を出す。
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("release_mouse"):
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-
-
 func _physics_process(delta: float) -> void:
-	# 重力
-	if not is_on_floor():
-		velocity.y -= Tuning.gravity * delta
+	floor_max_angle = deg_to_rad(Tuning.slope_max_angle)
+	floor_snap_length = Tuning.floor_snap
+
+	# 重力・ジャンプ
+	if is_on_floor():
+		if Input.is_action_just_pressed("jump"):
+			velocity.y = Tuning.jump_velocity
 	else:
-		velocity.y = 0.0
+		velocity.y -= Tuning.gravity * delta
 
 	# 入力 → カメラ基準の方向
 	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")

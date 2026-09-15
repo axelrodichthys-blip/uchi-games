@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://c0grayworld0001"]
+[gd_scene load_steps=8 format=3 uid="uid://c0grayworld0001"]
 
 [ext_resource type="Script" path="res://scenes/worlds/gray/gray_world.gd" id="1_world"]
 [ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="2_player"]
@@ -21,13 +21,6 @@ fog_sky_affect = 1.0
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_ground"]
 shader = ExtResource("5_shader")
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_ground"]
-material = SubResource("ShaderMaterial_ground")
-size = Vector2(600, 600)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_ground"]
-size = Vector3(600, 1, 600)
-
 [node name="GrayWorld" type="Node3D"]
 script = ExtResource("1_world")
 
@@ -41,15 +34,13 @@ light_energy = 0.8
 shadow_enabled = true
 directional_shadow_max_distance = 60.0
 
-[node name="Ground" type="StaticBody3D" parent="."]
+[node name="Terrain" type="StaticBody3D" parent="."]
 collision_layer = 1
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
-mesh = SubResource("PlaneMesh_ground")
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Terrain"]
+material_override = SubResource("ShaderMaterial_ground")
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.5, 0)
-shape = SubResource("BoxShape3D_ground")
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Terrain"]
 
 [node name="Landmarks" type="Node3D" parent="."]
 

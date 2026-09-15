@@ -10,6 +10,9 @@ var acceleration: float = 10.0     # 加速の速さ（大きいほどキビキ�
 var deceleration: float = 14.0     # 止まる速さ
 var turn_speed: float = 10.0       # キャラが進行方向を向く速さ
 var gravity: float = 9.8
+var jump_velocity: float = 4.5     # ジャンプの初速 m/s（4.5 で約 1m の高さ）
+var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱いで登れず滑る（度）
+var floor_snap: float = 0.5        # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
 
 # ---- カメラ（三人称）----
 var camera_distance: float = 4.0   # キャラからカメラまでの距離 m
@@ -40,6 +43,8 @@ const RANGES := {
 	"acceleration": [1.0, 40.0, 0.5],
 	"deceleration": [1.0, 40.0, 0.5],
 	"turn_speed": [1.0, 30.0, 0.5],
+	"jump_velocity": [2.0, 10.0, 0.1],
+	"slope_max_angle": [20.0, 80.0, 1.0],
 	"camera_distance": [1.5, 10.0, 0.1],
 	"camera_height": [0.5, 3.0, 0.05],
 	"camera_follow_speed": [1.0, 30.0, 0.5],

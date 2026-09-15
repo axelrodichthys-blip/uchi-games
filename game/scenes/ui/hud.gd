@@ -3,8 +3,8 @@ extends CanvasLayer
 
 @onready var label: Label = $Margin/Label
 
-const TEXT_IDLE := "クリックで視点操作を開始\nWASD / 左スティック: 移動   Shift: 走る   マウス / 右スティック: 視点\nホイール: 距離   V: 一人称 / 三人称   F1: 調整パネル   Esc: マウス解放"
-const TEXT_ACTIVE := "V: 視点切替   F1: 調整   Esc: マウス解放"
+const TEXT_IDLE := "右ボタンを押しながらマウス: 視点   Tab: 視点をマウスに固定 / 解除\nWASD / 左スティック: 移動   Shift: 走る   Space: ジャンプ   右スティック: 視点\nホイール: 距離   V: 一人称 / 三人称   F1: 調整パネル"
+const TEXT_ACTIVE := "Tab / Esc: マウスを自由にする   V: 視点切替   F1: 調整"
 
 
 func _process(_delta: float) -> void:
