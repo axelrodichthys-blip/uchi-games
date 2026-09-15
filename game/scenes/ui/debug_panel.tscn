@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://c0debugpanel001"]
+
+[ext_resource type="Script" path="res://scenes/ui/debug_panel.gd" id="1_debug"]
+
+[node name="DebugPanel" type="CanvasLayer"]
+layer = 10
+script = ExtResource("1_debug")
+
+[node name="Panel" type="PanelContainer" parent="."]
+anchors_preset = 1
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -520.0
+offset_top = 8.0
+offset_right = -8.0
+offset_bottom = 700.0
+grow_horizontal = 0
+
+[node name="Scroll" type="ScrollContainer" parent="Panel"]
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Panel/Scroll/VBox"]
+layout_mode = 2
+text = "調整パネル（F1 で閉じる）"
+
+[node name="FpsLabel" type="Label" parent="Panel/Scroll/VBox"]
+layout_mode = 2
+text = "FPS"
+
+[node name="Rows" type="VBoxContainer" parent="Panel/Scroll/VBox"]
+layout_mode = 2
+
+[node name="DumpEdit" type="TextEdit" parent="Panel/Scroll/VBox"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+editable = false
