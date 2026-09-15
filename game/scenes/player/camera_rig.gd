@@ -3,26 +3,35 @@ extends Node3D
 ## マウス視点の操作方法:
 ##   - 右ボタンを押している間だけ視点が動く（離すとマウスが自由になる）
 ##   - Tab で「押しっぱなしにしなくても動く」固定モードの切替。Esc / Tab で解除
-## 構造: CameraRig(ヨー) > Pitch(ピッチ) > SpringArm3D > Camera3D
+##
+## カメラと物の干渉（Tuning.camera_collision_mode）:
+##   0 = すり抜け+透過: 地形だけを避ける。カメラとキャラの間にある小物は半透明にする
+##   1 = 引き寄せ: 地形と小物の両方を避け、ぶつかったらカメラを手前に寄せる（寄るのは速く、戻るのはゆっくり）
+##
+## 構造: CameraRig(ヨー) > Pitch(ピッチ) > [ShapeCast3D, Camera3D]
+
+const LAYER_WORLD := 1     # 地形
+const LAYER_PROPS := 4     # 小物（レイヤー3）
 
 @onready var pitch_node: Node3D = $Pitch
-@onready var spring_arm: SpringArm3D = $Pitch/SpringArm3D
-@onready var camera: Camera3D = $Pitch/SpringArm3D/Camera3D
+@onready var shape_cast: ShapeCast3D = $Pitch/ShapeCast3D
+@onready var camera: Camera3D = $Pitch/Camera3D
 
 var first_person: bool = false
 var _yaw: float = 0.0
 var _pitch: float = 0.0
 var _target_distance: float = 0.0
+var _current_distance: float = 0.0
 var _hold_look: bool = false      # 右ボタンを押している間
 var _capture_locked: bool = false # Tab で固定したか
+var _faded: Dictionary = {}       # 透過中の GeometryInstance3D -> true
 
 
 func _ready() -> void:
-	top_level = false
 	_pitch = Tuning.camera_pitch_default
 	_target_distance = Tuning.camera_distance
-	spring_arm.spring_length = _target_distance
-	spring_arm.add_excluded_object(get_parent().get_rid())
+	_current_distance = _target_distance
+	shape_cast.add_exception(get_parent())
 	_apply_rotation()
 
 
@@ -66,14 +75,68 @@ func _process(delta: float) -> void:
 		_pitch += dy if Tuning.invert_y else -dy
 		_apply_rotation()
 
-	# 距離・視野角を滑らかに追従
-	var want_len := 0.0 if first_person else _target_distance
+	# 視野角・注視点の高さ
 	var want_fov := Tuning.fov_first_person if first_person else Tuning.fov
 	var t := clampf(Tuning.camera_follow_speed * delta, 0.0, 1.0)
-	spring_arm.spring_length = lerpf(spring_arm.spring_length, want_len, t)
 	camera.fov = lerpf(camera.fov, want_fov, t)
 	var want_height := Tuning.first_person_eye_height if first_person else Tuning.camera_height
 	position.y = lerpf(position.y, want_height, t)
+
+	_update_distance(delta)
+	_update_occluders(delta)
+
+
+## 距離: 目標距離までシェイプキャストして、ぶつかる手前に置く
+func _update_distance(delta: float) -> void:
+	var want := 0.0 if first_person else _target_distance
+	var mode := int(Tuning.camera_collision_mode)
+	shape_cast.collision_mask = LAYER_WORLD if mode == 0 else (LAYER_WORLD | LAYER_PROPS)
+	shape_cast.target_position = Vector3(0, 0, want)
+	shape_cast.force_shapecast_update()
+	var allowed := want
+	if shape_cast.is_colliding():
+		allowed = maxf(want * shape_cast.get_closest_collision_safe_fraction(), 0.0)
+	# 寄るのは速く、戻るのはゆっくり（一般的な三人称カメラの作法）
+	var speed := Tuning.camera_pull_in_speed if allowed < _current_distance else Tuning.camera_pull_out_speed
+	if first_person:
+		speed = Tuning.camera_follow_speed
+	_current_distance = lerpf(_current_distance, allowed, clampf(speed * delta, 0.0, 1.0))
+	camera.position = Vector3(0, 0, _current_distance)
+
+
+## 透過: カメラとキャラの間にある小物を半透明にする
+func _update_occluders(delta: float) -> void:
+	var hits: Dictionary = {}
+	if not first_person and Tuning.occluder_fade > 0.0:
+		var space := get_world_3d().direct_space_state
+		var from := camera.global_position
+		var to := global_position
+		var exclude: Array[RID] = [get_parent().get_rid()]
+		for i in 6:
+			var query := PhysicsRayQueryParameters3D.create(from, to, LAYER_PROPS, exclude)
+			var hit := space.intersect_ray(query)
+			if hit.is_empty():
+				break
+			var collider: Node = hit.get("collider")
+			if collider:
+				for child in collider.get_children():
+					if child is GeometryInstance3D:
+						hits[child] = true
+				exclude.append(hit["rid"])
+			from = hit["position"]
+
+	var t := clampf(8.0 * delta, 0.0, 1.0)
+	for geom in hits.keys():
+		_faded[geom] = true
+	for geom in _faded.keys():
+		if not is_instance_valid(geom):
+			_faded.erase(geom)
+			continue
+		var target := Tuning.occluder_fade if hits.has(geom) else 0.0
+		geom.transparency = lerpf(geom.transparency, target, t)
+		if not hits.has(geom) and geom.transparency < 0.01:
+			geom.transparency = 0.0
+			_faded.erase(geom)
 
 
 func set_capture_locked(locked: bool) -> void:

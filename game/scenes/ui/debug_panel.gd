@@ -62,6 +62,21 @@ func _build_rows() -> void:
 		rows.add_child(row)
 		_sliders[key] = {"slider": slider, "value": value_label}
 
+	for key in Tuning.OPTIONS.keys():
+		var row := HBoxContainer.new()
+		var name_label := Label.new()
+		name_label.text = key
+		name_label.custom_minimum_size.x = 170
+		var option := OptionButton.new()
+		for choice in Tuning.OPTIONS[key]:
+			option.add_item(choice)
+		option.selected = int(Tuning.get(key))
+		option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		option.item_selected.connect(func(index: int) -> void: Tuning.set(key, index))
+		row.add_child(name_label)
+		row.add_child(option)
+		rows.add_child(row)
+
 	var invert := CheckBox.new()
 	invert.text = "invert_y（上下反転）"
 	invert.button_pressed = Tuning.invert_y

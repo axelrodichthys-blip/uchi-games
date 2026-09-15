@@ -1,7 +1,8 @@
 extends Node3D
 ## フェーズ1の「灰色の世界」。起伏のある地面に目印の箱を撒く。
 ## 地形はノイズで生成する。出現地点の周り（半径 flat_radius）は平ら、外側ほど丘になる。
-## 出現地点の東（+X）には「急斜面テスト用」の山を置く（slope_max_angle より急なので滑り落ちる）。
+## 出現地点の右前には「急斜面テスト用」の山を置く（slope_max_angle より急なので滑り落ちる）。
+## 目印の箱は物理レイヤー3（props）。カメラは設定によってこれをすり抜ける。
 ## フォグの濃さは Tuning から毎フレーム反映する（デバッグパネルで変えられるように）。
 
 @export var landmark_count: int = 60
@@ -14,9 +15,9 @@ extends Node3D
 @export var hill_height: float = 10.0     # 丘の高さの目安 m
 @export var hill_frequency: float = 0.012 # 小さいほどなだらかで大きな丘
 @export var flat_radius: float = 15.0     # この半径までは平ら
-@export var steep_hill_position: Vector2 = Vector2(40.0, 0.0)
-@export var steep_hill_radius: float = 12.0
-@export var steep_hill_height: float = 14.0  # 半径12で高さ14 → 約50度（登れない）
+@export var steep_hill_position: Vector2 = Vector2(18.0, -14.0)  # 開始地点の右前
+@export var steep_hill_radius: float = 10.0
+@export var steep_hill_height: float = 17.0  # 半径10で高さ17 → 約60度（登れない）
 
 @onready var environment: WorldEnvironment = $WorldEnvironment
 @onready var landmarks: Node3D = $Landmarks
@@ -78,9 +79,11 @@ func _build_terrain() -> void:
 			var x := -half + ix * terrain_cell
 			var z := -half + iz * terrain_cell
 			var r := Vector2(x, z).length()
-			var amp := smoothstep(flat_radius, flat_radius * 3.0, r) * hill_height
-			var h := noise.get_noise_2d(x, z) * amp
 			var d := Vector2(x, z).distance_to(steep_hill_position)
+			# 急斜面の山の周りはノイズを消して、斜面の角度をはっきりさせる
+			var amp := smoothstep(flat_radius, flat_radius * 3.0, r) * hill_height
+			amp *= smoothstep(steep_hill_radius, steep_hill_radius + 8.0, d)
+			var h := noise.get_noise_2d(x, z) * amp
 			h += steep_hill_height * clampf(1.0 - d / steep_hill_radius, 0.0, 1.0)
 			_heights[iz * _grid_n + ix] = h
 
@@ -139,7 +142,7 @@ func _spawn_landmarks() -> void:
 
 func _add_box(pos: Vector3, size: Vector3, yaw: float) -> void:
 	var body := StaticBody3D.new()
-	body.collision_layer = 1
+	body.collision_layer = 4  # レイヤー3 = props
 	body.position = pos
 	body.rotation.y = yaw
 

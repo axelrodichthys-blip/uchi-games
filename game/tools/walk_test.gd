@@ -41,12 +41,19 @@ func _ready() -> void:
 
 	# 地形: 急斜面の山の上に置くと滑り落ちるか
 	var world_script: Node = world
-	var top := Vector3(46.0, world_script.get_ground_height(46.0, 0.0) + 1.0, 0.0)
+	var top := Vector3(24.0, world_script.get_ground_height(24.0, -14.0) + 1.0, -14.0)
 	player.global_position = top
 	player.velocity = Vector3.ZERO
 	for i in 180:
 		await get_tree().physics_frame
 	var slid := Vector2(player.global_position.x - top.x, player.global_position.z - top.z).length()
+	var gx := player.global_position.x
+	var gz := player.global_position.z
+	var dx: float = (world_script.get_ground_height(gx + 0.5, gz) - world_script.get_ground_height(gx - 0.5, gz))
+	var dz: float = (world_script.get_ground_height(gx, gz + 0.5) - world_script.get_ground_height(gx, gz - 0.5))
+	print("[walk_test] 急斜面デバッグ: on_floor=%s floor_angle=%.1f度 地形の傾き=%.1f度 位置=%s" % [
+		str(player.is_on_floor()), rad_to_deg(player.get_floor_angle()),
+		rad_to_deg(atan(Vector2(dx, dz).length())), str(player.global_position.snapped(Vector3(0.1, 0.1, 0.1)))])
 	print("[walk_test] 急斜面: 3秒後に水平 %.2f m 移動（高さ %.2f → %.2f）" % [slid, top.y, player.global_position.y])
 	var slide_ok := slid > 3.0
 	print("[walk_test] 急斜面で滑る: %s" % ("OK" if slide_ok else "NG"))

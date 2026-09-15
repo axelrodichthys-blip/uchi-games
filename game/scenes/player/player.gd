@@ -4,6 +4,7 @@ extends CharacterBody3D
 ## 身体は常に垂直に立つ（一般的な3Dゲームと同じ。地面の傾きに合わせて身体は傾けない）。
 
 @onready var body: Node3D = $Body
+@onready var traveler: Node3D = $Body/Traveler
 @onready var camera_rig: Node3D = $CameraRig
 
 var _speed: float = 0.0
@@ -37,10 +38,14 @@ func _physics_process(delta: float) -> void:
 
 	var horizontal := velocity
 	horizontal.y = 0.0
-	if dir.length_squared() > 0.0:
-		horizontal = horizontal.move_toward(dir.normalized() * _speed, rate * delta)
-	else:
-		horizontal = horizontal.move_toward(Vector3.ZERO, rate * delta)
+	if is_on_floor():
+		if dir.length_squared() > 0.0:
+			horizontal = horizontal.move_toward(dir.normalized() * _speed, rate * delta)
+		else:
+			horizontal = horizontal.move_toward(Vector3.ZERO, rate * delta)
+	elif dir.length_squared() > 0.0:
+		# 空中: 慣性を保ったまま、少しだけ操作できる（急斜面で滑るときも勢いを殺さない）
+		horizontal = horizontal.move_toward(dir.normalized() * _speed, Tuning.air_control * rate * delta)
 	velocity.x = horizontal.x
 	velocity.z = horizontal.z
 
@@ -53,3 +58,4 @@ func _physics_process(delta: float) -> void:
 
 	body.visible = not camera_rig.first_person
 	move_and_slide()
+	traveler.update_motion(Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y, delta)

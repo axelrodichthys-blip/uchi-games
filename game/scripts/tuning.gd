@@ -4,14 +4,15 @@ extends Node
 ## 良い数値が見つかったら、この初期値を書き換える。
 
 # ---- 移動 ----
-var walk_speed: float = 2.5        # 歩く速さ m/s（目安 2〜3）
-var run_speed: float = 5.0         # 走る速さ m/s
+var walk_speed: float = 2.8        # 歩く速さ m/s（目安 2〜3）
+var run_speed: float = 6.7         # 走る速さ m/s
 var acceleration: float = 10.0     # 加速の速さ（大きいほどキビキビ）
 var deceleration: float = 14.0     # 止まる速さ
 var turn_speed: float = 10.0       # キャラが進行方向を向く速さ
 var gravity: float = 9.8
-var jump_velocity: float = 4.5     # ジャンプの初速 m/s（4.5 で約 1m の高さ）
+var jump_velocity: float = 5.9     # ジャンプの初速 m/s（5.9 で約 1.8m の高さ）
 var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱いで登れず滑る（度）
+var air_control: float = 0.3       # 空中での操作の効き（0 で効かない、1 で地上と同じ）
 var floor_snap: float = 0.5        # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
 
 # ---- カメラ（三人称）----
@@ -27,6 +28,10 @@ var pitch_max: float = 60.0        # 見上げられる限界（度）
 var fov: float = 70.0              # 視野角（三人称）
 var fov_first_person: float = 80.0 # 視野角（一人称）
 var first_person_eye_height: float = 1.55
+var camera_collision_mode: int = 0  # 0=すり抜けて小物を透過 / 1=引き寄せ（OPTIONS 参照）
+var camera_pull_in_speed: float = 20.0   # 物にぶつかって寄るときの速さ
+var camera_pull_out_speed: float = 4.0   # 元の距離に戻るときの速さ（ゆっくり）
+var occluder_fade: float = 0.75          # 間にある小物の透け具合（0 で透過しない、1 で消える）
 
 # ---- 入力 ----
 var mouse_sensitivity: float = 0.15   # 度 / ピクセル
@@ -45,6 +50,7 @@ const RANGES := {
 	"turn_speed": [1.0, 30.0, 0.5],
 	"jump_velocity": [2.0, 10.0, 0.1],
 	"slope_max_angle": [20.0, 80.0, 1.0],
+	"air_control": [0.0, 1.0, 0.05],
 	"camera_distance": [1.5, 10.0, 0.1],
 	"camera_height": [0.5, 3.0, 0.05],
 	"camera_follow_speed": [1.0, 30.0, 0.5],
@@ -54,7 +60,15 @@ const RANGES := {
 	"fov_first_person": [40.0, 110.0, 1.0],
 	"mouse_sensitivity": [0.02, 0.6, 0.01],
 	"stick_sensitivity": [30.0, 400.0, 5.0],
+	"camera_pull_in_speed": [2.0, 40.0, 1.0],
+	"camera_pull_out_speed": [0.5, 20.0, 0.5],
+	"occluder_fade": [0.0, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
+}
+
+# デバッグパネル用: 選択式の設定。変数名 -> 選択肢の名前（値はその index）
+const OPTIONS := {
+	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 }
 
 
@@ -63,5 +77,7 @@ func dump() -> String:
 	var lines := PackedStringArray()
 	for key in RANGES.keys():
 		lines.append("%s = %s" % [key, str(get(key))])
+	for key in OPTIONS.keys():
+		lines.append("%s = %d" % [key, get(key)])
 	lines.append("invert_y = %s" % str(invert_y))
 	return "\n".join(lines)
