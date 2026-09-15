@@ -5,7 +5,7 @@
 ## ブラウザで確認できる URL
 
 - **https://axelrodichthys-blip.github.io/uchi-games/**
-  - ※ まだ開けません。下の「ユーザーにお願いすること」の 1〜2 を済ませると、数分後に開けるようになります
+  - ※ 下の「ユーザーにお願いすること」の 1〜2（Public 化と Pages 有効化）を済ませると、数分後に開けるようになります
   - 操作: 画面をクリック → WASD で移動、マウスで視点、Shift で走る、ホイールで距離、V で一人称 / 三人称、F1 で調整パネル、Esc でマウス解放
   - コントローラー: 左スティック移動、右スティック視点、LB で走る、Start で視点切替
   - スマホでは操作できません（キーボード / マウス / パッド前提）
@@ -28,7 +28,7 @@
 
 - **GitHub Pages はまだ有効化されていない**（リポジトリ設定はユーザーしか変えられない）
 - **このリポジトリは private**。GitHub Pages を private リポジトリで使うには有料プラン（Pro）が必要。無料で使うならリポジトリを public にする必要がある
-- 今回の作業はブランチ `claude/game-phase-0-to-1-69bbxr` に push した（セッションの設定で main への直接 push が禁止されていたため）。main に取り込まないと Pages の自動配置は動かない
+- 作業は main に push 済み（ユーザーの許可を得て、ブランチ `claude/game-phase-0-to-1-69bbxr` から反映）
 - Web ビルドの日本語フォント: VL Gothic を同梱した（同梱前はブラウザで日本語が□になっていた）
 - 操作感の数値はすべて初期値のまま（ユーザーの感想待ち）
 - Windows 側の Godot / Blender のパスは未設定
@@ -47,10 +47,9 @@
    （private のままにしたい場合は GitHub Pro が必要。その場合は教えてください。代わりに itch.io へ直接アップロードする案もあります）
 2. **GitHub Pages を有効化する**
    Settings → Pages → Build and deployment → Source を **「GitHub Actions」** にする（保存ボタンはなく、選ぶだけ）
-3. **ブランチを main に取り込む**
-   https://github.com/axelrodichthys-blip/uchi-games/compare/main...claude/game-phase-0-to-1-69bbxr を開く → Create pull request → Merge pull request
-   （または次のセッションで「main に push して」と言ってもらえれば Claude がやります）
-   → main に入ると Actions の「Web 書き出し → GitHub Pages」が走り、2〜3分で上の URL が開けるようになります。Actions タブで進み具合を見られます
+3. **配置を走らせる**
+   Pages を有効化したあと、Actions タブ → 「Web 書き出し → GitHub Pages」 → Run workflow（main）を押す。2〜3分で上の URL が開けるようになります
+   （以後は main への push のたびに自動で走ります）
 4. **決めてほしいこと**
    - ブラウザで歩いてみた感想（速い / 遅い、カメラが近い / 遠い、酔う / 酔わない、視野角）
    - ジャンプは入れる？（今は無し）
