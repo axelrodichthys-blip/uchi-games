@@ -17,8 +17,10 @@
 - フェーズ0 完了。フェーズ1 の実装は一通り入っている（ユーザーの操作感チェック待ち）
 - `game/` を Godot 4.7.2 で headless 読み込み・起動できる（エラーなし）
 - 起伏のある灰色のグリッド地面（ノイズ生成、出現地点の周り 15m は平ら）+ 目印の箱 + 急斜面テストの山
-- 手足・コート付きの仮キャラ（黒い身体、サンドベージュの帽子と前が割れたコート）。`game/scenes/player/traveler.gd` が人体と同じ関節（骨盤・背骨・胸・首・頭 / 鎖骨・肩・肘・手首 / 股・膝・足首・つま先）で組み立て、足の位置から股と膝を IK で解く歩行（足が滑らない、踵接地→つま先で蹴る）、骨盤の上下・ひねり・傾きと胸の逆回転、頭の安定、走りの前傾と深い肘、ジャンプ・着地、待機の呼吸・体重移動・見回し、曲がるときの傾き。Mixamo の本アニメが入るまでのつなぎ
-- Mixamo 用の A ポーズメッシュ `docs/reference/character/traveler_apose.obj`（Blender の bpy スクリプトで生成、Godot 用の .glb も `game/assets/`）と、FBX → .glb 変換スクリプト `tools/blender/mixamo_fbx_to_glb.py`（実物の FBX での検証はまだ）
+- **Mixamo のアニメ付きキャラが既定**（`game/scenes/player/traveler_rig.gd` + `game/assets/traveler_mixamo.glb`）。待機 / 歩き / 走り（速度でブレンド、足が滑らないよう再生速度も実速度に合わせる）/ 後退 / ジャンプ / 落下 / 着地 / 長く止まると見回す。F1 の character_model で数式の仮キャラと切り替えて比べられる
+- 数式の仮キャラ（比較用）: `game/scenes/player/traveler.gd` が人体と同じ関節（骨盤・背骨・胸・首・頭 / 鎖骨・肩・肘・手首 / 股・膝・足首・つま先）で組み立て、足の位置から股と膝を IK で解く歩行（足が滑らない、踵接地→つま先で蹴る）、骨盤の上下・ひねり・傾きと胸の逆回転、頭の安定、走りの前傾と深い肘、ジャンプ・着地、待機の呼吸・体重移動・見回し、曲がるときの傾き。Mixamo の本アニメが入るまでのつなぎ
+- Mixamo の流れが一通り通った: `tools/blender/build_traveler_apose.py`（A ポーズメッシュ）→ ユーザーが Mixamo で自動リグ + アニメ 10 本 → `docs/reference/mixamo/*.fbx` → `tools/blender/mixamo_fbx_to_glb.py`（大きさを元 OBJ に合わせて正規化、Mixamo がまとめた材質を元 OBJ の面から復元、色は sRGB→リニア変換）→ `game/assets/traveler_mixamo.glb`
+- `game/tools/inspect_glb.gd` で .glb の中身（アニメ一覧、骨、材質、歩き・走りクリップの基準速度）を確認できる。Walking 1.5 m/s、Running 2.4 m/s と計測し、Tuning の anim_*_native_speed の初期値にした
 - カメラ: 地形だけ避けて小物はすり抜け、間の小物は半透明（既定）。引き寄せ方式も F1 で選べる。寄るのは速く戻るのはゆっくり
 - 三人称カメラ（右ボタン押下中にマウス / 右スティック、Tab で固定、ホイールで距離）、V で一人称
 - WASD / 左スティック移動（2.8 m/s）、Shift / LB で走る（6.7 m/s）、Space / A でジャンプ（初速 5.9、約 1.8m）。空中でも少し操作できる（air_control）。フォグで地平線が霞む
@@ -36,26 +38,27 @@
 - リポジトリは Public 化済み、Pages は有効化済み（Source: GitHub Actions）。配置は成功している
 - 作業は main に push 済み（ユーザーの許可を得て、ブランチ `claude/game-phase-0-to-1-69bbxr` から反映）
 - Web ビルドの日本語フォント: VL Gothic を同梱した（同梱前はブラウザで日本語が□になっていた）
-- 仮キャラのアニメは手続き（数式）。人体の関節と IK で「人形っぽさ」は減ったが、有名ゲームの動きはモーションキャプチャなので同じにはならない。本命は Mixamo（`docs/MIXAMO_GUIDE.md`、ユーザーのブラウザ操作が必要）
-- `tools/blender/mixamo_fbx_to_glb.py` は Mixamo の実ファイルで未検証。FBX が届いたら直しながら使う
-- その場で向きを変えるとき（振り向き）は足踏みをしていない（体だけ回る）。Mixamo の Turn アニメで解決予定
+- Mixamo のキャラは帽子の先まで 2.07 m（身体は 1.62 m）。当たり判定のカプセル（1.6 m）は身体に合わせているので、帽子は低い天井を通り抜ける（今は問題にならない）
+- 振り向き（LeftTurn / RightTurn）は未使用。三人称では体が進行方向を向くので、その場で向きだけ変える場面がない
+- コートは Mixamo の自動ウェイトで脚に追従するが、布のような揺れはない（本キャラでは Godot 側の物理か揺れボーンを検討）
+- 着地アニメ（Landing）は 0.35〜0.55 秒だけ再生して地上に戻す。歩きながら着地するとすぐ歩きに切り替わる
+- 後退（WalkingBackwards）は一人称で後ろに歩いたときだけ出る
 - Windows 側の Godot / Blender のパスは未設定
 
 ## 次にやること
 
-1. ユーザーが Mixamo で仮キャラをリグしてアニメを落とす（`docs/MIXAMO_GUIDE.md`）→ Claude が .glb に変換して AnimationTree で組み込む。これが「動きの品質」の本命
-2. 「歩く気持ちよさ」の初手: 足音、歩行時のカメラの微かな揺れ、加減速の味付け
-3. 仮キャラの振り向き（足の踏み替え）。Mixamo が先に来るなら省略
+1. ユーザーに Mixamo 版の動きの感想をもらう（足が滑るなら F1 の anim_walk_native_speed / anim_run_native_speed を調整）
+2. 「歩く気持ちよさ」の初手: 足音（アニメの足の接地に合わせる）、歩行時のカメラの微かな揺れ、加減速の味付け
+3. 本キャラのデザインが届いたら、`build_traveler_apose.py` を本キャラの形に書き換えて同じ手順で差し替え
 4. ユーザーから詳細なキャラ設定とキャラ画像が届いたら、`tools/blender/` に bpy スクリプトを書いてモデル生成（要件は `docs/REFERENCE_GUIDE.md`）
 5. 余裕があれば: 雨の景色のプロトタイプ用にワールドのテンプレート化を検討
 
 ## ユーザーにお願いすること（すべてブラウザで完結）
 
-1. **Mixamo で仮キャラにアニメを付ける**（`docs/MIXAMO_GUIDE.md`。所要 20〜30 分、Adobe の無料アカウントが必要）。落とした FBX は GitHub の Add file → Upload files で `docs/reference/mixamo/` に置く
-2. **詳細なキャラ設定を送る**（後日。`docs/REFERENCE_GUIDE.md` 1 章の「先に決めておくこと」も目を通してください）
-3. **ChatGPT でキャラ画像を作る**（`docs/REFERENCE_GUIDE.md` 2〜3 章のプロンプト）。できた PNG は `docs/reference/character/` に置く
-4. **決めてほしいこと**
-   - 仮キャラの体型: F1 の body_scale / leg_length / arm_length / head_size / hat_size で良い値が見つかったら伝える
+1. **詳細なキャラ設定を送る**（後日。`docs/REFERENCE_GUIDE.md` 1 章の「先に決めておくこと」も目を通してください）
+2. **ChatGPT でキャラ画像を作る**（`docs/REFERENCE_GUIDE.md` 2〜3 章のプロンプト）。できた PNG は `docs/reference/character/` に置く
+3. **決めてほしいこと**
+   - Mixamo 版の動きで「歩き・走り・ジャンプ」の感想。足が滑って見えるか
    - 一人称切替のキーは V でよい？
 
 ## 自宅PCでやること（ソフト導入が要るもの）
@@ -69,7 +72,10 @@
 | 場所 | 内容 |
 |---|---|
 | `game/scripts/tuning.gd` | 操作感の数値（すべてここ） |
-| `game/scenes/player/` | 操作（player.gd）、カメラ（camera_rig.gd）、仮キャラの組み立てと動き（traveler.gd） |
+| `game/scenes/player/` | 操作（player.gd）、カメラ（camera_rig.gd）、Mixamo キャラの動き（traveler_rig.gd）、数式の仮キャラ（traveler.gd） |
+| `game/assets/traveler_mixamo.glb` | Mixamo のリグとアニメ 10 本入りのキャラ |
+| `docs/reference/mixamo/` | ユーザーが Mixamo から落とした FBX（変換元） |
+| `game/tools/inspect_glb.gd` | .glb の中身とクリップの基準速度を調べる |
 | `tools/blender/` | Mixamo 用メッシュの生成（build_traveler_apose.py）、FBX → glb 変換（mixamo_fbx_to_glb.py） |
 | `docs/MIXAMO_GUIDE.md` / `docs/REFERENCE_GUIDE.md` | Mixamo の手順 / キャラ画像とワールド資料の要件 |
 | `game/scenes/worlds/gray/` | 灰色の世界（地面・箱・フォグ） |

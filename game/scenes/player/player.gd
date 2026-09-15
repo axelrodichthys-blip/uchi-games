@@ -4,7 +4,8 @@ extends CharacterBody3D
 ## 身体は常に垂直に立つ（一般的な3Dゲームと同じ。地面の傾きに合わせて身体は傾けない）。
 
 @onready var body: Node3D = $Body
-@onready var traveler: Node3D = $Body/Traveler
+@onready var traveler_procedural: Node3D = $Body/Traveler
+@onready var traveler_rig: Node3D = $Body/TravelerRig
 @onready var camera_rig: Node3D = $CameraRig
 
 var _speed: float = 0.0
@@ -61,4 +62,14 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	var yaw_rate := angle_difference(_prev_body_yaw, body.rotation.y) / delta
 	_prev_body_yaw = body.rotation.y
-	traveler.update_motion(Vector2(velocity.x, velocity.z).length(), is_on_floor(), velocity.y, yaw_rate, delta)
+	# 進行方向と体の向き（-Z が前）の内積。一人称で後ろ歩きしたときに -1 になる
+	var forward := -body.global_basis.z
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	var forward_dot := 1.0
+	if horizontal_speed > 0.1:
+		forward_dot = forward.dot(Vector3(velocity.x, 0, velocity.z) / horizontal_speed)
+	var use_rig := int(Tuning.character_model) == 0
+	traveler_rig.visible = use_rig
+	traveler_procedural.visible = not use_rig
+	var active: Node3D = traveler_rig if use_rig else traveler_procedural
+	active.update_motion(horizontal_speed, is_on_floor(), velocity.y, yaw_rate, forward_dot, delta)

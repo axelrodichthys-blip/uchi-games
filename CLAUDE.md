@@ -95,5 +95,6 @@ uchi-games/
 - クラウド: headless での動作確認: `godot --headless --path game --import` → `godot --headless --path game --quit-after 5`
 - クラウド: 歩行の自動テスト: `godot --headless --path game res://tools/walk_test.tscn`
 - クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump]`（xvfb + Mesa のソフトウェア描画。動作確認済み）
+- クラウド: Mixamo の FBX → .glb: `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb`、中身の確認: `godot --headless --path game --script res://tools/inspect_glb.gd -- res://assets/traveler_mixamo.glb`
 - Web書き出しのコマンド: `bash tools/export-web.sh` → `build/web/`（約39MB、スレッド無効ビルド）
 - ブラウザ確認用の URL（GitHub Pages）: https://axelrodichthys-blip.github.io/uchi-games/ （main への push で `.github/workflows/deploy-pages.yml` が自動配置。Pages の有効化が必要）

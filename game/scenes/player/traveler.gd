@@ -254,8 +254,9 @@ func _make_coat_half_mesh(left: bool, S: float) -> ArrayMesh:
 
 
 # ================================================================ 動き
-## speed: 水平速度 m/s, on_floor: 接地, vertical_velocity: 上下速度, yaw_rate: 向きの変化 rad/s
-func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_rate: float, delta: float) -> void:
+## speed: 水平速度 m/s, on_floor: 接地, vertical_velocity: 上下速度, yaw_rate: 向きの変化 rad/s,
+## forward_dot: 進行方向と体の向きの内積（数式版では未使用）
+func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_rate: float, _forward_dot: float, delta: float) -> void:
 	if _shape_key != _shape_signature():
 		_build()
 

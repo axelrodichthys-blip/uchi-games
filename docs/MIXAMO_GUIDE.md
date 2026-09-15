@@ -6,9 +6,17 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 
 流れ: Claude がメッシュを書き出す → **ユーザーが Mixamo で自動リグ + アニメを選んで FBX を落とす** → Claude が .glb に変換して Godot に組み込む
 
-## 0. 今できているもの
+## 0. 今できているもの（2026-09-15 に一通り通った）
 - `docs/reference/character/traveler_apose.obj` … 仮キャラの A ポーズのメッシュ（Blender の `tools/blender/build_traveler_apose.py` で生成）
-- `tools/blender/mixamo_fbx_to_glb.py` … Mixamo の FBX をまとめて .glb にする変換スクリプト
+- `docs/reference/mixamo/*.fbx` … ユーザーが Mixamo で落とした 10 本
+- `tools/blender/mixamo_fbx_to_glb.py` … Mixamo の FBX をまとめて .glb にする変換スクリプト（大きさの正規化と材質の復元込み）
+- `game/assets/traveler_mixamo.glb` … 変換結果。`game/scenes/player/traveler_rig.gd` が AnimationTree で動かしている
+
+分かったこと:
+- Mixamo は OBJ の単位を cm と解釈するので、FBX は 100 倍小さく戻ってくる。変換で元 OBJ の高さに合わせる
+- Mixamo は材質を 1 つにまとめる。変換で元 OBJ の面に一番近い面の材質を写して復元する
+- Blender の材質色はリニアなので、Godot と同じ見た目にするには sRGB → リニア変換して渡す
+- 「In Place」版の Walking は約 1.5 m/s、Running は約 2.4 m/s を想定した動き（`game/tools/inspect_glb.gd` で計測）。ゲームの速度に合わせて再生速度を変えている
 
 本キャラのデザインが決まったら、同じ手順でそのメッシュに差し替える。Mixamo のアニメはリグの骨名が共通なので、あとから何度でも当て直せる。
 

@@ -1,8 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://c0player000001"]
+[gd_scene load_steps=7 format=3 uid="uid://c0player000001"]
 
 [ext_resource type="Script" path="res://scenes/player/player.gd" id="1_player"]
 [ext_resource type="Script" path="res://scenes/player/camera_rig.gd" id="2_camera"]
 [ext_resource type="PackedScene" path="res://scenes/player/traveler.tscn" id="3_traveler"]
+[ext_resource type="PackedScene" path="res://scenes/player/traveler_rig.tscn" id="4_rig"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.3
@@ -21,6 +22,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 0)
 shape = SubResource("CapsuleShape3D_1")
 
 [node name="Body" type="Node3D" parent="."]
+
+[node name="TravelerRig" parent="Body" instance=ExtResource("4_rig")]
 
 [node name="Traveler" parent="Body" instance=ExtResource("3_traveler")]
 

@@ -38,6 +38,11 @@ var mouse_sensitivity: float = 0.15   # 度 / ピクセル
 var stick_sensitivity: float = 150.0  # 度 / 秒（右スティック）
 var invert_y: bool = false
 
+# ---- キャラのモデル ----
+var character_model: int = 0          # 0=Mixamo アニメ / 1=数式の仮キャラ（OPTIONS 参照）
+var anim_walk_native_speed: float = 1.5   # Walking クリップが想定している移動速度 m/s（tools/inspect_glb.gd で計測。足が滑るなら調整）
+var anim_run_native_speed: float = 2.4    # Running クリップが想定している移動速度 m/s（計測値）
+
 # ---- 仮キャラの体型（倍率。1.0 が基準）----
 var body_scale: float = 1.0
 var leg_length: float = 1.0
@@ -78,6 +83,8 @@ const RANGES := {
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
 	"occluder_fade": [0.0, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
+	"anim_walk_native_speed": [0.5, 4.0, 0.05],
+	"anim_run_native_speed": [1.5, 8.0, 0.05],
 	"body_scale": [0.7, 1.4, 0.01],
 	"leg_length": [0.7, 1.4, 0.01],
 	"arm_length": [0.7, 1.4, 0.01],
@@ -92,6 +99,7 @@ const RANGES := {
 
 # デバッグパネル用: 選択式の設定。変数名 -> 選択肢の名前（値はその index）
 const OPTIONS := {
+	"character_model": ["Mixamo のアニメ（本命）", "数式の仮キャラ（比較用）"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 }
 
