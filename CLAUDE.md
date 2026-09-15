@@ -90,6 +90,9 @@ uchi-games/
 
 - Windows: Godot 実行ファイルのパス: （未設定）
 - Windows: Blender 実行ファイルのパス: （未設定）
-- クラウド: Godot / Blender の導入方法: tools/cloud-setup.sh（未作成）
-- Web書き出しのコマンド: （フェーズ1で整備）
-- ブラウザ確認用の URL（GitHub Pages）: （未設定）
+- クラウド: Godot / Blender の導入方法: `bash tools/cloud-setup.sh`（Godot 4.7.2 本体 + Web テンプレートを GitHub リリースから、Blender 4.0.2 を apt から。約1分）
+- クラウド: headless での動作確認: `godot --headless --path game --import` → `godot --headless --path game --quit-after 5`
+- クラウド: 歩行の自動テスト: `godot --headless --path game res://tools/walk_test.tscn`
+- クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png`（xvfb + Mesa のソフトウェア描画。動作確認済み）
+- Web書き出しのコマンド: `bash tools/export-web.sh` → `build/web/`（約39MB、スレッド無効ビルド）
+- ブラウザ確認用の URL（GitHub Pages）: https://axelrodichthys-blip.github.io/uchi-games/ （main への push で `.github/workflows/deploy-pages.yml` が自動配置。Pages の有効化が必要）

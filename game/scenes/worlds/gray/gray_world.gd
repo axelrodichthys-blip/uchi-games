@@ -14,7 +14,7 @@ var _box_material: StandardMaterial3D
 
 func _ready() -> void:
 	_box_material = StandardMaterial3D.new()
-	_box_material.albedo_color = Color(0.58, 0.59, 0.62)
+	_box_material.albedo_color = Color(0.42, 0.43, 0.46)
 	_box_material.roughness = 0.95
 	_spawn_landmarks()
 
