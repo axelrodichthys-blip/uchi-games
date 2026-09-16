@@ -45,8 +45,10 @@ var ambient_volume_db: float = -14.0  # 環境音（雨音など）の音量 dB
 
 # ---- タッチ操作（スマホ・タブレット）----
 var touch_controls: int = 0            # 0=自動（タッチ端末で出す）/ 1=常に表示 / 2=隠す（OPTIONS 参照）
-var touch_look_sensitivity: float = 0.14   # 度 / ピクセル（右側のドラッグで視点）
-var touch_stick_radius: float = 90.0       # 仮想スティックの半径 px（720px 基準。画面の大きさで自動的に拡縮）
+var touch_look_sensitivity: float = 0.14   # 度 / ピクセル（1 本指のドラッグで視点）
+var touch_stick_radius: float = 0.13       # 仮想スティックの半径（画面の短いほうの辺に対する割合）
+var touch_ui_scale: float = 1.0            # タッチ操作の表示の大きさ（1.0 が既定。大きいほどボタンが大きい）
+var touch_zoom_speed: float = 14.0         # 2 本指でつまんだときの距離の変わりやすさ
 
 # ---- 入力 ----
 var mouse_sensitivity: float = 0.15   # 度 / ピクセル
@@ -72,6 +74,10 @@ var anim_stride_run: float = 1.05    # 走りの1歩の長さ m
 var anim_arm_swing: float = 1.0      # 腕の振りの倍率
 var anim_bounce: float = 1.0         # 上下動の倍率
 var anim_lean_run: float = 12.0      # 走りの前傾（度）
+
+# ---- 画質（スマホなど非力な端末向け）----
+var graphics_quality: int = 0      # 0=自動（端末で決める）/ 1=高 / 2=低（OPTIONS 参照）
+var render_scale: float = 1.0      # 3D の描画解像度の倍率。下げると軽くなる（輪郭は少しぼやける）
 
 # ---- 風景 ----
 var fog_density: float = 0.012     # フォグの濃さ（大きいほど近くまで霞む）
@@ -102,11 +108,14 @@ const RANGES := {
 	"fov_first_person": [40.0, 110.0, 1.0],
 	"mouse_sensitivity": [0.02, 0.6, 0.01],
 	"touch_look_sensitivity": [0.02, 0.6, 0.01],
-	"touch_stick_radius": [40.0, 160.0, 5.0],
+	"touch_stick_radius": [0.06, 0.25, 0.005],
+	"touch_ui_scale": [0.6, 1.8, 0.05],
+	"touch_zoom_speed": [2.0, 40.0, 1.0],
 	"stick_sensitivity": [30.0, 400.0, 5.0],
 	"camera_pull_in_speed": [2.0, 40.0, 1.0],
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
 	"occluder_fade": [0.0, 1.0, 0.05],
+	"render_scale": [0.4, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
 	"rain_amount": [0.0, 1.0, 0.05],
 	"puddle_amount": [0.0, 0.9, 0.02],
@@ -135,7 +144,28 @@ const OPTIONS := {
 	"arm_swing": ["歩き・走りで腕を振らない（待機の腕）", "クリップ通りに振る"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 	"touch_controls": ["自動（タッチ端末で表示）", "常に表示", "隠す"],
+	"graphics_quality": ["自動（端末で決める）", "高", "低（軽くする）"],
 }
+
+
+## スマホなどタッチ端末は非力なことが多いので、起動時に軽い設定にしておく
+func _ready() -> void:
+	if is_mobile():
+		render_scale = 0.7
+
+
+## スマホ・タブレットか（Web ビルドでも判定できる）
+func is_mobile() -> bool:
+	return OS.has_feature("mobile") or OS.has_feature("web_android") or OS.has_feature("web_ios") \
+		or DisplayServer.is_touchscreen_available()
+
+
+## 軽くする設定にするか（graphics_quality の「自動」を解決する）
+func low_quality() -> bool:
+	match graphics_quality:
+		1: return false
+		2: return true
+		_: return is_mobile()
 
 
 ## 現在の値を「設定ファイルに貼れる形」で返す（デバッグパネルのコピー用）

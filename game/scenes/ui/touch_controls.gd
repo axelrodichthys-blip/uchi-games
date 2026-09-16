@@ -1,25 +1,30 @@
 extends Control
 ## スマホ・タブレット用のタッチ操作。指を何本使っても効くよう、画面のタッチを自分で仕分ける。
-##   画面の左側   … 触れた場所に仮想スティックが出る。ドラッグで移動（傾け具合が速さになる）
-##   画面の右側   … ドラッグで視点
-##   右下のボタン … ジャンプ / 走る（押している間）
+##   画面の左下側 … 触れた場所に仮想スティックが出る。ドラッグで移動（傾け具合が速さになる）
+##   それ以外     … 1 本指でなぞると視点、2 本指でつまむとカメラの距離（ズーム）
+##   右下のボタン … ジャンプ / 走る（タップで入り切り）
 ##   右上のボタン … 視点（一人称 / 三人称）/ 調整（F1）/ 次のワールド（F2）
+##
+## 大きさは画面の短いほうの辺に対する割合で決める（端末の解像度が違っても指で押せる大きさになる）。
+## F1 の touch_ui_scale で全体の大きさ、touch_stick_radius でスティックの大きさを変えられる。
 ##
 ## 表示は Tuning.touch_controls（0=自動 / 1=常に表示 / 2=隠す）。
 ## 自動はタッチ画面を持つ端末か、最初に画面に触れたときに出る（PC では出ない）。
 ## WorldBase がすべてのワールドに自動で足すので、ワールド側で用意する必要はない。
 
-const STICK_ZONE_W := 0.45     # 画面の左からこの割合までがスティックの領域
-const STICK_ZONE_TOP := 0.30   # 画面の上からこの割合より下がスティックの領域
+const STICK_ZONE_W := 0.48     # 画面の左からこの割合までがスティックの領域
+const STICK_ZONE_TOP := 0.32   # 画面の上からこの割合より下がスティックの領域
 const ACTION_OF := {"jump": "jump", "run": "run", "view": "toggle_view",
 	"debug": "toggle_debug", "world": "next_world"}
 
-var _ui_scale: float = 1.0
+var _unit: float = 100.0       # 画面の短いほうの辺。ボタンの大きさはこれに対する割合で決める
 var _stick_index: int = -1
 var _stick_origin: Vector2 = Vector2.ZERO
 var _stick_pos: Vector2 = Vector2.ZERO
-var _look_index: int = -1
+var _look: Dictionary = {}     # 視点・ズーム用の指: 指の番号 -> 今の位置
+var _pinch_prev: float = -1.0  # 直前の 2 本指の間隔
 var _button_of: Dictionary = {}   # 指の番号 -> ボタン名
+var _run_on: bool = false      # 走る（タップで入り切り。押しっぱなしは指がつらい）
 var _seen_touch: bool = false
 var _font: Font
 
@@ -36,7 +41,7 @@ func _process(_delta: float) -> void:
 		if not want:
 			_release_all()
 	if visible:
-		_ui_scale = clampf(minf(size.x, size.y) / 720.0, 0.65, 1.8)
+		_unit = minf(size.x, size.y) * clampf(Tuning.touch_ui_scale, 0.5, 2.0)
 		queue_redraw()
 
 
@@ -62,10 +67,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.index == _stick_index:
 			_stick_pos = event.position
 			_apply_stick()
-		elif event.index == _look_index:
-			var camera_rig: Node = _camera_rig()
-			if camera_rig:
-				camera_rig.add_look(event.relative * Tuning.touch_look_sensitivity)
+		elif _look.has(event.index):
+			_look[event.index] = event.position
+			_apply_look(event)
 		get_viewport().set_input_as_handled()
 
 
@@ -81,8 +85,9 @@ func _on_press(index: int, pos: Vector2) -> void:
 		_stick_pos = pos
 		_apply_stick()
 		return
-	if _look_index < 0:
-		_look_index = index
+	if _look.size() < 2:
+		_look[index] = pos
+		_pinch_prev = -1.0
 
 
 func _on_release(index: int) -> void:
@@ -92,13 +97,30 @@ func _on_release(index: int) -> void:
 	if index == _stick_index:
 		_stick_index = -1
 		_release_move()
-	if index == _look_index:
-		_look_index = -1
+	if _look.has(index):
+		_look.erase(index)
+		_pinch_prev = -1.0
+
+
+## 1 本指なら視点、2 本指ならつまんでズーム
+func _apply_look(event: InputEventScreenDrag) -> void:
+	var camera_rig: Node = _camera_rig()
+	if camera_rig == null:
+		return
+	if _look.size() >= 2:
+		var points: Array = _look.values()
+		var dist: float = (points[0] as Vector2).distance_to(points[1])
+		if _pinch_prev > 0.0:
+			# 指を広げると近づく（拡大）、狭めると離れる
+			camera_rig.zoom((_pinch_prev - dist) / maxf(_unit, 1.0) * Tuning.touch_zoom_speed)
+		_pinch_prev = dist
+	else:
+		camera_rig.add_look(event.relative * Tuning.touch_look_sensitivity)
 
 
 ## スティックの傾きを移動の入力にする（傾けるほど速い）
 func _apply_stick() -> void:
-	var radius := Tuning.touch_stick_radius * _ui_scale
+	var radius := _stick_radius()
 	var v := (_stick_pos - _stick_origin) / maxf(radius, 1.0)
 	if v.length() > 1.0:
 		# 大きく動かしたらスティックの中心を引きずる（指を追いかける）
@@ -132,10 +154,22 @@ func _release_all() -> void:
 		_press_button(id, false)
 	_button_of.clear()
 	_stick_index = -1
-	_look_index = -1
+	_look.clear()
+	if _run_on:
+		_run_on = false
+		Input.action_release("run")
 
 
 func _press_button(id: String, pressed: bool) -> void:
+	# 走るだけはタップで入り切り（押しっぱなしにしなくてよい）
+	if id == "run":
+		if pressed:
+			_run_on = not _run_on
+			if _run_on:
+				Input.action_press("run")
+			else:
+				Input.action_release("run")
+		return
 	var action: String = ACTION_OF.get(id, "")
 	if action == "":
 		return
@@ -150,67 +184,74 @@ func _camera_rig() -> Node:
 	return player.get_node_or_null("CameraRig") if player else null
 
 
+func _stick_radius() -> float:
+	return _unit * clampf(Tuning.touch_stick_radius, 0.05, 0.3)
+
+
 # ---------------------------------------------------------------- 見た目
-## ボタンの一覧（画面の大きさから毎回計算する）
+## ボタンの一覧。大きさ・位置はすべて画面の短いほうの辺（_unit）に対する割合で決める
 func _buttons() -> Array:
-	var s := _ui_scale
+	var u := _unit
 	var w := size.x
 	var h := size.y
 	var list: Array = []
-	list.append({"id": "jump", "shape": "circle", "center": Vector2(w - 100 * s, h - 110 * s), "radius": 58 * s, "label": "ジャンプ"})
-	list.append({"id": "run", "shape": "circle", "center": Vector2(w - 215 * s, h - 78 * s), "radius": 44 * s, "label": "走る"})
-	var top_y := 14 * s
-	var bw := 96 * s
-	var bh := 44 * s
-	var gap := 8 * s
+	var jump_r := u * 0.115
+	var run_r := u * 0.082
+	list.append({"id": "jump", "shape": "circle", "center": Vector2(w - jump_r - u * 0.05, h - jump_r - u * 0.06), "radius": jump_r, "label": "ジャンプ"})
+	list.append({"id": "run", "shape": "circle", "center": Vector2(w - jump_r * 2.0 - run_r - u * 0.09, h - run_r - u * 0.055), "radius": run_r, "label": "走る"})
+	var bw := u * 0.19
+	var bh := u * 0.085
+	var gap := u * 0.02
+	var top_y := u * 0.035
 	var labels := [["view", "視点"], ["debug", "調整"], ["world", "ワールド"]]
 	for i in labels.size():
-		var x: float = w - (bw + gap) * (labels.size() - i) - 6 * s
+		var x: float = w - (bw + gap) * (labels.size() - i) - u * 0.02
 		list.append({"id": labels[i][0], "shape": "rect", "rect": Rect2(x, top_y, bw, bh), "label": labels[i][1]})
 	return list
 
 
 func _hit(b: Dictionary, pos: Vector2) -> bool:
 	if b["shape"] == "circle":
-		return pos.distance_to(b["center"]) <= b["radius"] * 1.15
-	return (b["rect"] as Rect2).grow(6.0 * _ui_scale).has_point(pos)
+		return pos.distance_to(b["center"]) <= float(b["radius"]) * 1.12
+	return (b["rect"] as Rect2).grow(_unit * 0.02).has_point(pos)
 
 
 func _draw() -> void:
-	var s := _ui_scale
+	var u := _unit
+	var line_w := maxf(u * 0.004, 1.5)
 	var pressed_ids: Array = _button_of.values()
 	for b in _buttons():
-		var on: bool = pressed_ids.has(b["id"])
-		var fill := Color(1, 1, 1, 0.26 if on else 0.13)
-		var line := Color(1, 1, 1, 0.75 if on else 0.42)
+		var on: bool = pressed_ids.has(b["id"]) or (b["id"] == "run" and _run_on)
+		var fill := Color(1, 1, 1, 0.30 if on else 0.16)
+		var line := Color(1, 1, 1, 0.9 if on else 0.55)
 		if b["shape"] == "circle":
 			var c: Vector2 = b["center"]
 			var r: float = b["radius"]
 			draw_circle(c, r, fill)
-			draw_arc(c, r, 0.0, TAU, 40, line, 2.0 * s, true)
-			_label(b["label"], c, 18 * s)
+			draw_arc(c, r, 0.0, TAU, 48, line, line_w, true)
+			_label(b["label"], c, u * 0.036)
 		else:
 			var rect: Rect2 = b["rect"]
 			draw_rect(rect, fill, true)
-			draw_rect(rect, line, false, 2.0 * s)
-			_label(b["label"], rect.get_center(), 16 * s)
+			draw_rect(rect, line, false, line_w)
+			_label(b["label"], rect.get_center(), u * 0.032)
 
 	# 仮想スティック（触れている間だけ出す）
+	var radius := _stick_radius()
 	if _stick_index >= 0:
-		var radius := Tuning.touch_stick_radius * s
-		draw_arc(_stick_origin, radius, 0.0, TAU, 48, Color(1, 1, 1, 0.35), 2.0 * s, true)
+		draw_arc(_stick_origin, radius, 0.0, TAU, 56, Color(1, 1, 1, 0.4), line_w, true)
 		var knob := _stick_origin + (_stick_pos - _stick_origin).limit_length(radius)
-		draw_circle(knob, radius * 0.42, Color(1, 1, 1, 0.3))
-		draw_arc(knob, radius * 0.42, 0.0, TAU, 32, Color(1, 1, 1, 0.7), 2.0 * s, true)
+		draw_circle(knob, radius * 0.42, Color(1, 1, 1, 0.34))
+		draw_arc(knob, radius * 0.42, 0.0, TAU, 40, Color(1, 1, 1, 0.8), line_w, true)
 	else:
 		# 待機中はスティックの置き場所をうっすら示す
-		var hint := Vector2(size.x * 0.17, size.y * 0.76)
-		draw_arc(hint, Tuning.touch_stick_radius * s, 0.0, TAU, 48, Color(1, 1, 1, 0.12), 2.0 * s, true)
-		_label("移動", hint, 16 * s, 0.35)
+		var hint := Vector2(size.x * 0.2, size.y - radius - u * 0.1)
+		draw_arc(hint, radius, 0.0, TAU, 56, Color(1, 1, 1, 0.16), line_w, true)
+		_label("移動", hint, u * 0.034, 0.4)
 
 
-func _label(text: String, center: Vector2, font_size: float, alpha: float = 0.85) -> void:
-	var size_px := int(font_size)
+func _label(text: String, center: Vector2, font_size: float, alpha: float = 0.9) -> void:
+	var size_px := maxi(int(font_size), 8)
 	var text_size: Vector2 = _font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px)
 	draw_string(_font, center - text_size * 0.5 + Vector2(0, text_size.y * 0.35), text,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, Color(1, 1, 1, alpha))

@@ -13,7 +13,8 @@ uniform float puddle_amount = 0.42;     // 水たまりの量 0〜1
 uniform float ripple_density = 1.4;     // 波紋の密度（1m あたりの個数の目安）
 uniform float ripple_speed = 1.1;       // 波紋が広がる速さ
 uniform float ripple_rate = 0.6;        // 波紋の出る割合 0〜1（雨の量と連動。Tuning.rain_amount）
-uniform float wet_roughness = 0.85;     // 水たまり以外の濡れた地面の粗さ
+uniform float wet_roughness = 0.85;
+uniform bool cheap = false;             // 軽くする（細かいノイズと波紋を省く。スマホ向け）     // 水たまり以外の濡れた地面の粗さ
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -60,13 +61,16 @@ float ripples(vec2 p, float t) {
 
 void fragment() {
 	vec2 p = world_pos.xz;
-	float n = vnoise(p * puddle_scale) * 0.62 + vnoise(p * puddle_scale * 3.3 + 11.0) * 0.38;
+	float n = vnoise(p * puddle_scale);
+	if (!cheap) {
+		n = n * 0.62 + vnoise(p * puddle_scale * 3.3 + 11.0) * 0.38;
+	}
 	float flat_ground = smoothstep(0.90, 0.985, world_normal.y);
 	float edge = 1.0 - puddle_amount;
 	float puddle = smoothstep(edge, edge + 0.10, n) * flat_ground;
-	float rip = ripples(p * ripple_density, TIME) * puddle;
+	float rip = cheap ? 0.0 : ripples(p * ripple_density, TIME) * puddle;
 	// 濡れた地面の細かいムラ
-	float grain = vnoise(p * 2.7) * 0.10 - 0.05;
+	float grain = cheap ? 0.0 : vnoise(p * 2.7) * 0.10 - 0.05;
 	vec3 col = mix(base_color * (1.0 + grain), puddle_color, puddle);
 	// 水たまりの映り込み: 視線が浅いほど空が強く映る（フレネル）。Compatibility では空の反射が弱いので式で足す
 	float fresnel = pow(1.0 - clamp(dot(normalize(VIEW), NORMAL), 0.0, 1.0), 3.0);

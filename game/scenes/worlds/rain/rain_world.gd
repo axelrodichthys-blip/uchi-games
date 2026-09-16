@@ -4,7 +4,8 @@ extends WorldBase
 ## 灯りは **別のワールドへの入口**。近づくと光が強くなり、触れると白くフェードして次のワールドへ移る。
 ## 地形の共通部分は world_base.gd。ここではワールド固有の小物と、雨をプレイヤーに追従させる。
 
-const RAIN_MAX_AMOUNT := 2400   # rain_amount = 1.0 のときの粒の数
+const RAIN_MAX_AMOUNT := 2400        # rain_amount = 1.0 のときの粒の数
+const RAIN_MAX_AMOUNT_LOW := 700     # 軽くする設定のときの上限（スマホ）
 
 @export_group("雨")
 @export var rain_height: float = 9.0        # プレイヤーの頭上どこから降らせるか
@@ -35,7 +36,8 @@ func _process(delta: float) -> void:
 	rain.global_position = player.global_position + Vector3(0.0, rain_height, 0.0)
 	rain_sound.volume_db = Tuning.ambient_volume_db + linear_to_db(clampf(0.25 + 0.75 * Tuning.rain_amount, 0.05, 1.0))
 	# F1 の値を反映（雨の量・水たまり）
-	var want_amount := maxi(int(RAIN_MAX_AMOUNT * Tuning.rain_amount), 1)
+	var cap := RAIN_MAX_AMOUNT_LOW if Tuning.low_quality() else RAIN_MAX_AMOUNT
+	var want_amount := maxi(int(cap * Tuning.rain_amount), 1)
 	if rain.amount != want_amount:
 		rain.amount = want_amount   # 個数を変えると粒が撒き直される（スライダーを動かした瞬間だけ途切れる）
 		rain.emitting = Tuning.rain_amount > 0.01
@@ -48,6 +50,13 @@ func _process(delta: float) -> void:
 		var scale := 1.0 / maxf(Tuning.puddle_size, 1.0)
 		if not is_equal_approx(float(mat.get_shader_parameter("puddle_scale")), scale):
 			mat.set_shader_parameter("puddle_scale", scale)
+
+
+## 軽くする設定では、地面のシェーダーの手間を減らす（細かいノイズと波紋を省く）
+func _on_quality_changed(low: bool) -> void:
+	var mat := terrain_mesh.material_override as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter("cheap", low)
 
 
 func _decorate() -> void:

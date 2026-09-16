@@ -14,6 +14,7 @@ uniform float puddle_amount = 0.55;     // 水たまりの量 0〜1
 uniform float street_half = 9.0;        // 道の半分の幅 m（この外は歩道）
 uniform float sign_spacing = 13.0;      // 看板の間隔 m（映り込みの縞の間隔）
 uniform float reflect_strength = 1.0;   // 映り込みの強さ
+uniform bool cheap = false;             // 軽くする（細かいノイズを省く。スマホ向け）
 
 varying vec3 world_pos;
 varying vec3 world_normal;
@@ -58,10 +59,13 @@ void fragment() {
 	// 道と歩道
 	float street = 1.0 - smoothstep(street_half - 0.6, street_half + 0.6, abs(p.x));
 	vec3 base = mix(walk_color, asphalt_color, street);
-	base *= 1.0 + (vnoise(p * 2.3) * 0.16 - 0.08);
+	base *= cheap ? 1.0 : 1.0 + (vnoise(p * 2.3) * 0.16 - 0.08);
 
 	// 水たまり
-	float n = vnoise(p * puddle_scale) * 0.62 + vnoise(p * puddle_scale * 3.1 + 11.0) * 0.38;
+	float n = vnoise(p * puddle_scale);
+	if (!cheap) {
+		n = n * 0.62 + vnoise(p * puddle_scale * 3.1 + 11.0) * 0.38;
+	}
 	float edge = 1.0 - puddle_amount;
 	float puddle = smoothstep(edge, edge + 0.10, n) * flat_ground * street;
 	vec3 col = mix(base, puddle_color, puddle);
@@ -76,7 +80,7 @@ void fragment() {
 	// 建物側ほど強く、道の中央に向かって薄れる。細かい揺らぎで水面らしくする
 	// 道の中央にも薄く色が届くようにして、足元が真っ暗にならないようにする
 	float from_edge = 0.25 + 0.75 * smoothstep(0.0, street_half, abs(p.x));
-	float wobble = 0.65 + 0.35 * vnoise(vec2(p.x * 1.6, p.y * 0.22 + TIME * 0.05));
+	float wobble = cheap ? 0.85 : 0.65 + 0.35 * vnoise(vec2(p.x * 1.6, p.y * 0.22 + TIME * 0.05));
 	float mirror = from_edge * wobble * street * reflect_strength;
 	float glow = mirror * (0.25 + 0.75 * puddle);
 

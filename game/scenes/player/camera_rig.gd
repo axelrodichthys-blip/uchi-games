@@ -190,6 +190,11 @@ func _apply_rotation() -> void:
 	pitch_node.rotation.x = deg_to_rad(_pitch)
 
 
+## カメラの距離を変える（+ で遠く、- で近く）。タッチの 2 本指ズームから呼ぶ
+func zoom(amount: float) -> void:
+	_change_distance(amount)
+
+
 ## 視点を動かす（度）。タッチ操作など、マウス以外から回すときに使う
 func add_look(delta: Vector2) -> void:
 	_yaw -= delta.x

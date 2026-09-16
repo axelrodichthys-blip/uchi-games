@@ -7,6 +7,7 @@ extends Node3D
 ##   - フォグの濃さを Tuning から毎フレーム反映する（F1 で変えられる）。ワールドごとの初期値は fog_density_default
 ##   - F2 で次のワールドへ（WorldList）。フェードつきの移動は go_to_world()
 ##   - スマホ用のタッチ操作（scenes/ui/touch_controls.tscn）を自動で足す
+##   - 画質の反映（F1 の graphics_quality / render_scale）。低いと描画解像度を下げ、影とアンチエイリアスを切る
 ##   - 別のワールドへの入口（add_portal）。近づくと光が強くなり、触れるとフェードして移動する
 ##   - 小物を置くときの共通ヘルパー（add_static_box / add_static_mesh）
 ##   - **世界の端の処理**（一般的なオープンワールドと同じ三段構え）:
@@ -57,6 +58,8 @@ var _spawn_point: Vector3
 var _fade: ColorRect
 var _busy: bool = false   # フェード中（入力とワールド移動を止める）
 var _portals: Array[Dictionary] = []
+var _quality_low: bool = false
+var _quality_scale: float = -1.0
 
 
 func _ready() -> void:
@@ -65,7 +68,9 @@ func _ready() -> void:
 	_build_boundary()
 	_build_fade()
 	add_child(TOUCH_CONTROLS.instantiate())
+	_quality_low = Tuning.low_quality()
 	_decorate()
+	_apply_quality(true)
 	_spawn_point = player.global_position
 
 
@@ -73,6 +78,7 @@ func _process(_delta: float) -> void:
 	var env := environment.environment
 	if env and not is_equal_approx(env.fog_density, Tuning.fog_density):
 		env.fog_density = Tuning.fog_density
+	_apply_quality(false)
 	_update_portals(_delta)
 	# 落下の保険: 世界の下に落ちたら出現地点に戻す
 	if not _busy and player.global_position.y < fall_limit:
@@ -83,6 +89,30 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("next_world"):
 		get_viewport().set_input_as_handled()
 		go_to_world(WorldList.next_scene(scene_file_path))
+
+
+# ---------------------------------------------------------------- 画質
+## F1 の画質設定を画面に反映する。重いのは「描画する画素の数」なので、まず render_scale を下げる
+func _apply_quality(force: bool) -> void:
+	var low := Tuning.low_quality()
+	var changed := force or low != _quality_low or not is_equal_approx(Tuning.render_scale, _quality_scale)
+	if not changed:
+		return
+	_quality_low = low
+	_quality_scale = Tuning.render_scale
+	var vp := get_viewport()
+	vp.scaling_3d_scale = clampf(Tuning.render_scale, 0.4, 1.0)
+	vp.msaa_3d = Viewport.MSAA_DISABLED if low else Viewport.MSAA_2X
+	for node in find_children("*", "DirectionalLight3D", true, false):
+		var light := node as DirectionalLight3D
+		light.shadow_enabled = not low
+		light.directional_shadow_max_distance = 30.0 if low else 50.0
+	_on_quality_changed(low)
+
+
+## ワールドごとの軽量化（粒の数、光源の数など）。ワールド側で上書きする
+func _on_quality_changed(_low: bool) -> void:
+	pass
 
 
 # ---------------------------------------------------------------- 別のワールドへの入口

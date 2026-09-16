@@ -64,7 +64,7 @@ func _ready() -> void:
 	for i in 20:
 		await tree.physics_frame
 	var ground := player.global_position.y
-	var jump_pos := Vector2(w - 100.0 * _scale(ui), h - 110.0 * _scale(ui))
+	var jump_pos := _button_center(ui, "jump")
 	_touch(2, jump_pos, true)
 	for i in 5:
 		await tree.physics_frame
@@ -76,11 +76,49 @@ func _ready() -> void:
 	print("[touch_test] ジャンプの高さ: %.2f m" % peak)
 	_check(peak > 0.7, "ジャンプボタンで跳ぶ")
 
+	# 4. 走るボタン: タップで入り、もう一度タップで切れる
+	var run_pos := _button_center(ui, "run")
+	_touch(3, run_pos, true)
+	await tree.physics_frame
+	_touch(3, run_pos, false)
+	await tree.physics_frame
+	var run_on := Input.is_action_pressed("run")
+	_touch(3, run_pos, true)
+	await tree.physics_frame
+	_touch(3, run_pos, false)
+	await tree.physics_frame
+	var run_off := not Input.is_action_pressed("run")
+	_check(run_on and run_off, "走るボタンがタップで入り切りできる")
+
+	# 5. 2 本指でつまむとカメラの距離が変わる
+	var dist_before: float = rig._target_distance
+	var a := Vector2(w * 0.65, h * 0.5)
+	var b := Vector2(w * 0.85, h * 0.5)
+	_touch(4, a, true)
+	_touch(5, b, true)
+	await tree.process_frame
+	_drag(4, a, a)
+	_drag(5, b, b)
+	await tree.process_frame
+	for i in 6:
+		_drag(4, a, a + Vector2(-20.0 * i, 0))
+		_drag(5, b, b + Vector2(20.0 * i, 0))
+		await tree.process_frame
+	_touch(4, a, false)
+	_touch(5, b, false)
+	var dist_after: float = rig._target_distance
+	print("[touch_test] つまんだあとのカメラ距離: %.2f → %.2f" % [dist_before, dist_after])
+	_check(absf(dist_after - dist_before) > 0.2, "2 本指でカメラの距離が変わる")
+
 	tree.quit(0 if _ok else 1)
 
 
-func _scale(ui: Control) -> float:
-	return clampf(minf(ui.size.x, ui.size.y) / 720.0, 0.65, 1.8)
+## ボタンの位置は画面の大きさから計算されるので、UI 自身に聞く
+func _button_center(ui: Control, id: String) -> Vector2:
+	for b in ui._buttons():
+		if b["id"] == id:
+			return b["center"] if b["shape"] == "circle" else (b["rect"] as Rect2).get_center()
+	return Vector2.ZERO
 
 
 func _touch(index: int, pos: Vector2, pressed: bool) -> void:

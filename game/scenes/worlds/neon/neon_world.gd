@@ -46,11 +46,20 @@ func _process(delta: float) -> void:
 		mat.set_shader_parameter("puddle_amount", Tuning.puddle_amount)
 
 
+## 軽くする設定では、地面のシェーダーの手間を減らす
+func _on_quality_changed(low: bool) -> void:
+	var mat := terrain_mesh.material_override as ShaderMaterial
+	if mat:
+		mat.set_shader_parameter("cheap", low)
+
+
 func _decorate() -> void:
 	_building_mat = WorldBase.flat_material(Color(0.07, 0.08, 0.12), 0.85)
 	_frame_mat = WorldBase.flat_material(Color(0.04, 0.045, 0.06), 0.7)
 	var rng := RandomNumberGenerator.new()
 	rng.seed = terrain_seed + 7
+	if Tuning.low_quality():
+		street_lights = maxi(street_lights / 2, 3)   # スマホでは光源を減らす
 	_build_street(rng)
 	_build_gate()
 
