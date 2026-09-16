@@ -18,6 +18,13 @@
 7. `hud_hint` に、そのワールドで「見つけるもの」のヒントを一言
 8. 確認: `bash tools/screenshot.sh build/<name>.png 90` と `WORLD=res://scenes/worlds/<name>/<name>_world.tscn bash tools/screenshot.sh build/<name>_ground.png 90 idle`
 
+## 自動でついてくるもの（`WorldBase` が用意する。特に何もしなくてよい）
+
+- **世界の端**: 地形が端に向かって山並みのように盛り上がり、登れない斜面になる。その中に見えない壁、さらに落ちたら出現地点に戻す保険。強さは `rim_width` / `rim_height` / `rim_variation` / `boundary_inset` / `fall_limit` で調整
+- **F2 でのワールド巡回**と、フェードつきの移動 `go_to_world(シーンのパス, 色, 秒)`。移動を始めると `world_changing` シグナルが出る
+- **フォグの濃さ**を F1 から反映（初期値は `fog_density_default`）
+- **足音の組**（`footstep_set` に "stone" / "wet"）
+
 ## 決めごと
 
 - 色はワールドごとに 3〜5 色。GAME_DESIGN.md の 5 章の表に書く

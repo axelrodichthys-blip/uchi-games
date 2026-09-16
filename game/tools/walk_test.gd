@@ -120,7 +120,37 @@ func _ready() -> void:
 	Input.action_release("move_back")
 	var wall_ok := wall_y < 0.3
 	print("[walk_test] 2.2m の段は登れない: %s（最高 %.2f）" % ["OK" if wall_ok else "NG", wall_y])
-	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok) else 1)
+	# 世界の端: 外へ歩き続けても外周より外に出ない（盛り上がり + 見えない壁）
+	var edge_ok := await _check_edge(world, player)
+	# 落下の保険: 世界の下に落ちたら出現地点に戻る
+	player.global_position = Vector3(0.0, -120.0, 0.0)
+	player.velocity = Vector3.ZERO
+	for i in 150:
+		await get_tree().physics_frame
+	var respawn_ok := player.global_position.y > -10.0
+	print("[walk_test] 落下したら出現地点に戻る: %s（高さ %.2f）" % ["OK" if respawn_ok else "NG", player.global_position.y])
+
+	get_tree().quit(0 if (edge_ok and respawn_ok and ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok) else 1)
+
+
+## 端に向かって走り続け、外周より外に出ていないか・落ちていないかを見る
+func _check_edge(world: Node, player: CharacterBody3D) -> bool:
+	var half: float = world.terrain_size * 0.5
+	var start_d: float = half - world.rim_width   # 盛り上がりの始まりから
+	player.global_position = Vector3(0.0, world.get_ground_height(0.0, -start_d) + 1.0, -start_d)
+	player.velocity = Vector3.ZERO
+	Input.action_press("move_forward")
+	Input.action_press("run")
+	for i in 900:   # 15 秒
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	Input.action_release("run")
+	var p := player.global_position
+	var d := maxf(absf(p.x), absf(p.z))
+	var inside := d < half and p.y > -10.0
+	print("[walk_test] 世界の端: %s（端からの距離 %.1f m, 高さ %.1f, 位置 %s）" % [
+		"OK" if inside else "NG", half - d, p.y, str(p.snapped(Vector3(0.1, 0.1, 0.1)))])
+	return inside
 
 
 func _walk_and_check(player: CharacterBody3D, start: Vector3, action: String, frames: int, min_y: float, label: String) -> bool:
