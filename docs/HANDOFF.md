@@ -27,7 +27,7 @@
 
 - `godot --headless --path game res://tools/walk_test.tscn` … 前進 / ジャンプ / 急斜面 / 30° の坂 / 崖 / 50° の下り坂 / 足音の回数、すべて OK
 - スクリーンショット（xvfb + Mesa）で確認済み: 歩き・走りがキャラの向きと一致、ジャンプの一連、雨の景色の全景と足元（水たまり・波紋・影）、灰色の世界
-- Web 書き出し（`bash tools/export-web.sh`、約 42MB）を headless Chromium（`bash tools/web-check.sh`）で起動確認
+- Web 書き出し（`bash tools/export-web.sh`、約 42MB）を headless Chromium（`bash tools/web-check.sh`）で読み込み確認（JS のエラーなし、起動画面まで。ソフトウェア描画ではシーンの描画まで進まないので、実際の画面は Pages でユーザーが確認する）
 - クラウドの確認手段（追加分）:
   - `bash tools/clip-view.sh build/c Jump 0.0,0.3,0.6` … アニメクリップ単体のポーズを PNG に
   - `python3 tools/sheet.py build/c build/sheet.png` … 連番 PNG を 1 枚に並べる（Pillow: `pip install pillow`）
