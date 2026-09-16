@@ -190,6 +190,13 @@ func _apply_rotation() -> void:
 	pitch_node.rotation.x = deg_to_rad(_pitch)
 
 
+## 視点を動かす（度）。タッチ操作など、マウス以外から回すときに使う
+func add_look(delta: Vector2) -> void:
+	_yaw -= delta.x
+	_pitch += delta.y if Tuning.invert_y else -delta.y
+	_apply_rotation()
+
+
 ## 進行方向の計算に使う（カメラのヨーだけ）
 func get_yaw() -> float:
 	return rotation.y

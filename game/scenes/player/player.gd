@@ -19,6 +19,7 @@ var _climb_t: float = 0.0
 var _climb_duration: float = 0.5
 var _climb_anim: bool = false   # 登りアニメを使う（高い段）か、歩いたまま（低い段）か
 var _push_time: float = 0.0   # 壁を押し続けている時間
+var _jump_buffer: float = 0.0 # ジャンプの先行入力（短いタップや着地直前の入力を拾う）
 
 
 func _ready() -> void:
@@ -39,10 +40,15 @@ func _physics_process(delta: float) -> void:
 		_update_climb(delta)
 		return
 
-	# 重力・ジャンプ
+	# 重力・ジャンプ。押した瞬間を少しの間覚えておく（タップが短くても、着地の直前でも跳べる）
+	if Input.is_action_just_pressed("jump"):
+		_jump_buffer = Tuning.jump_buffer_time
+	else:
+		_jump_buffer = maxf(_jump_buffer - delta, 0.0)
 	if is_on_floor():
-		if Input.is_action_just_pressed("jump"):
+		if _jump_buffer > 0.0:
 			velocity.y = Tuning.jump_velocity
+			_jump_buffer = 0.0
 	else:
 		velocity.y -= Tuning.gravity * delta
 

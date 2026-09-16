@@ -11,6 +11,7 @@ var deceleration: float = 14.0     # 止まる速さ
 var turn_speed: float = 10.0       # キャラが進行方向を向く速さ
 var gravity: float = 9.8
 var jump_velocity: float = 5.9     # ジャンプの初速 m/s（5.9 で約 1.8m の高さ）
+var jump_buffer_time: float = 0.18 # ジャンプの先行入力を覚えている時間 秒（短いタップや着地直前の入力を拾う）
 var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱いで登れず滑る（度）
 var air_control: float = 0.3       # 空中での操作の効き（0 で効かない、1 で地上と同じ）
 var floor_snap: float = 0.5        # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
@@ -41,6 +42,11 @@ var camera_bob: float = 0.02          # 歩行時のカメラの上下の揺れ 
 var run_fov_boost: float = 6.0        # 走っているとき視野角を広げる量（度。速さの実感用）
 var footstep_volume_db: float = -8.0  # 足音の音量 dB
 var ambient_volume_db: float = -14.0  # 環境音（雨音など）の音量 dB
+
+# ---- タッチ操作（スマホ・タブレット）----
+var touch_controls: int = 0            # 0=自動（タッチ端末で出す）/ 1=常に表示 / 2=隠す（OPTIONS 参照）
+var touch_look_sensitivity: float = 0.14   # 度 / ピクセル（右側のドラッグで視点）
+var touch_stick_radius: float = 90.0       # 仮想スティックの半径 px（720px 基準。画面の大きさで自動的に拡縮）
 
 # ---- 入力 ----
 var mouse_sensitivity: float = 0.15   # 度 / ピクセル
@@ -81,6 +87,7 @@ const RANGES := {
 	"deceleration": [1.0, 40.0, 0.5],
 	"turn_speed": [1.0, 30.0, 0.5],
 	"jump_velocity": [2.0, 10.0, 0.1],
+	"jump_buffer_time": [0.0, 0.5, 0.01],
 	"slope_max_angle": [20.0, 80.0, 1.0],
 	"air_control": [0.0, 1.0, 0.05],
 	"step_height": [0.1, 1.0, 0.05],
@@ -94,6 +101,8 @@ const RANGES := {
 	"fov": [40.0, 110.0, 1.0],
 	"fov_first_person": [40.0, 110.0, 1.0],
 	"mouse_sensitivity": [0.02, 0.6, 0.01],
+	"touch_look_sensitivity": [0.02, 0.6, 0.01],
+	"touch_stick_radius": [40.0, 160.0, 5.0],
 	"stick_sensitivity": [30.0, 400.0, 5.0],
 	"camera_pull_in_speed": [2.0, 40.0, 1.0],
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
@@ -125,6 +134,7 @@ const OPTIONS := {
 	"character_model": ["Mixamo のアニメ（本命）", "数式の仮キャラ（比較用）"],
 	"arm_swing": ["歩き・走りで腕を振らない（待機の腕）", "クリップ通りに振る"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
+	"touch_controls": ["自動（タッチ端末で表示）", "常に表示", "隠す"],
 }
 
 

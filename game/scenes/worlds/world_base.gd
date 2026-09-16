@@ -6,6 +6,7 @@ extends Node3D
 ##   - ノイズで起伏のある地面を作る（出現地点の周り flat_radius は平ら）。高さの式は _terrain_height() で差し替えられる
 ##   - フォグの濃さを Tuning から毎フレーム反映する（F1 で変えられる）。ワールドごとの初期値は fog_density_default
 ##   - F2 で次のワールドへ（WorldList）。フェードつきの移動は go_to_world()
+##   - スマホ用のタッチ操作（scenes/ui/touch_controls.tscn）を自動で足す
 ##   - 小物を置くときの共通ヘルパー（add_static_box / add_static_mesh）
 ##   - **世界の端の処理**（一般的なオープンワールドと同じ三段構え）:
 ##       1. 見せる壁: 地形が端に向かって高く盛り上がり、登れない斜面（slope_max_angle 以上）になって自然に引き返させる
@@ -15,6 +16,8 @@ extends Node3D
 ## 必要なノード（シーン側で用意する）:
 ##   WorldEnvironment, DirectionalLight3D, Terrain(StaticBody3D, layer 1) / MeshInstance3D / CollisionShape3D,
 ##   Player（scenes/player/player.tscn）, HUD, DebugPanel
+
+const TOUCH_CONTROLS := preload("res://scenes/ui/touch_controls.tscn")
 
 ## 別のワールドへ移り始めたとき（フェードの開始時）。headless テストや演出のつなぎに使う
 signal world_changing(scene_path: String)
@@ -59,6 +62,7 @@ func _ready() -> void:
 	_build_terrain()
 	_build_boundary()
 	_build_fade()
+	add_child(TOUCH_CONTROLS.instantiate())
 	_decorate()
 	_spawn_point = player.global_position
 
