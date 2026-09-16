@@ -7,6 +7,7 @@ extends Node3D
 ##   - フォグの濃さを Tuning から毎フレーム反映する（F1 で変えられる）。ワールドごとの初期値は fog_density_default
 ##   - F2 で次のワールドへ（WorldList）。フェードつきの移動は go_to_world()
 ##   - スマホ用のタッチ操作（scenes/ui/touch_controls.tscn）を自動で足す
+##   - 別のワールドへの入口（add_portal）。近づくと光が強くなり、触れるとフェードして移動する
 ##   - 小物を置くときの共通ヘルパー（add_static_box / add_static_mesh）
 ##   - **世界の端の処理**（一般的なオープンワールドと同じ三段構え）:
 ##       1. 見せる壁: 地形が端に向かって高く盛り上がり、登れない斜面（slope_max_angle 以上）になって自然に引き返させる
@@ -55,6 +56,7 @@ var _rim_noise: FastNoiseLite
 var _spawn_point: Vector3
 var _fade: ColorRect
 var _busy: bool = false   # フェード中（入力とワールド移動を止める）
+var _portals: Array[Dictionary] = []
 
 
 func _ready() -> void:
@@ -71,6 +73,7 @@ func _process(_delta: float) -> void:
 	var env := environment.environment
 	if env and not is_equal_approx(env.fog_density, Tuning.fog_density):
 		env.fog_density = Tuning.fog_density
+	_update_portals(_delta)
 	# 落下の保険: 世界の下に落ちたら出現地点に戻す
 	if not _busy and player.global_position.y < fall_limit:
 		respawn()
@@ -80,6 +83,45 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("next_world"):
 		get_viewport().set_input_as_handled()
 		go_to_world(WorldList.next_scene(scene_file_path))
+
+
+# ---------------------------------------------------------------- 別のワールドへの入口
+## 入口を登録する。近づくほど light / emissive / halo が強くなり、触れると次のワールドへ移る。
+##   point: 入口の中心（プレイヤーとの距離をここで測る）
+##   light / emissive / halo: 強くするもの（無ければ null でよい）
+func add_portal(point: Vector3, next_scene: String, fade_color: Color,
+		light: OmniLight3D = null, emissive: StandardMaterial3D = null, halo: Node3D = null,
+		glow_radius: float = 14.0, enter_radius: float = 3.0) -> void:
+	_portals.append({
+		"point": point, "next": next_scene, "color": fade_color,
+		"light": light, "emissive": emissive, "halo": halo,
+		"light_base": light.light_energy if light else 0.0,
+		"emissive_base": emissive.emission_energy_multiplier if emissive else 0.0,
+		"glow_radius": glow_radius, "enter_radius": enter_radius,
+	})
+
+
+func _update_portals(delta: float) -> void:
+	if _busy:
+		return
+	var t := clampf(4.0 * delta, 0.0, 1.0)
+	for portal in _portals:
+		var point: Vector3 = portal["point"]
+		var enter_radius: float = portal["enter_radius"]
+		var d := player.global_position.distance_to(point)
+		var near := 1.0 - clampf((d - enter_radius) / maxf(float(portal["glow_radius"]) - enter_radius, 0.1), 0.0, 1.0)
+		var light: OmniLight3D = portal["light"]
+		if light:
+			light.light_energy = lerpf(light.light_energy, float(portal["light_base"]) * (1.0 + 3.0 * near), t)
+		var emissive: StandardMaterial3D = portal["emissive"]
+		if emissive:
+			emissive.emission_energy_multiplier = lerpf(emissive.emission_energy_multiplier, float(portal["emissive_base"]) * (1.0 + 2.0 * near), t)
+		var halo: Node3D = portal["halo"]
+		if halo:
+			halo.scale = halo.scale.lerp(Vector3.ONE * (1.0 + 0.8 * near), t)
+		if d <= enter_radius:
+			go_to_world(portal["next"], portal["color"], 1.2)
+			return
 
 
 # ---------------------------------------------------------------- 世界の端・移動・暗転

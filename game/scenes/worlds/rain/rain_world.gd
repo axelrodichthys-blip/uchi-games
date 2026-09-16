@@ -13,16 +13,12 @@ const RAIN_MAX_AMOUNT := 2400   # rain_amount = 1.0 のときの粒の数
 @export var lantern_position: Vector2 = Vector2(6.0, -140.0)
 @export var lantern_glow_radius: float = 14.0   # この距離から光が強くなり始める m
 @export var lantern_enter_radius: float = 3.0   # この距離まで近づくと次のワールドへ m
-@export var lantern_next_world: String = "res://scenes/worlds/gray/gray_world.tscn"
+@export var lantern_next_world: String = "res://scenes/worlds/neon/neon_world.tscn"
 
 @onready var props: Node3D = $Props
 @onready var rain: CPUParticles3D = $Rain
 @onready var rain_sound: AudioStreamPlayer = $RainSound
 
-var _lantern_light: OmniLight3D
-var _lantern_mat: StandardMaterial3D
-var _lantern_halo: MeshInstance3D
-var _lantern_point: Vector3
 var _rock_mat: StandardMaterial3D
 var _post_mat: StandardMaterial3D
 var _stone_mat: StandardMaterial3D
@@ -43,7 +39,6 @@ func _process(delta: float) -> void:
 	if rain.amount != want_amount:
 		rain.amount = want_amount   # 個数を変えると粒が撒き直される（スライダーを動かした瞬間だけ途切れる）
 		rain.emitting = Tuning.rain_amount > 0.01
-	_update_lantern(delta)
 	var mat := terrain_mesh.material_override as ShaderMaterial
 	if mat:
 		if not is_equal_approx(float(mat.get_shader_parameter("puddle_amount")), Tuning.puddle_amount):
@@ -53,20 +48,6 @@ func _process(delta: float) -> void:
 		var scale := 1.0 / maxf(Tuning.puddle_size, 1.0)
 		if not is_equal_approx(float(mat.get_shader_parameter("puddle_scale")), scale):
 			mat.set_shader_parameter("puddle_scale", scale)
-
-
-## 灯りに近づくほど光を強くし、触れたら次のワールドへ
-func _update_lantern(delta: float) -> void:
-	if _lantern_light == null:
-		return
-	var d := player.global_position.distance_to(_lantern_point)
-	var near := 1.0 - clampf((d - lantern_enter_radius) / maxf(lantern_glow_radius - lantern_enter_radius, 0.1), 0.0, 1.0)
-	var t := clampf(4.0 * delta, 0.0, 1.0)
-	_lantern_light.light_energy = lerpf(_lantern_light.light_energy, 2.0 + 6.0 * near, t)
-	_lantern_mat.emission_energy_multiplier = lerpf(_lantern_mat.emission_energy_multiplier, 2.5 + 5.0 * near, t)
-	_lantern_halo.scale = _lantern_halo.scale.lerp(Vector3.ONE * (1.0 + 0.8 * near), t)
-	if d <= lantern_enter_radius:
-		go_to_world(lantern_next_world, Color(1.0, 0.93, 0.8), 1.2)
 
 
 func _decorate() -> void:
@@ -143,8 +124,7 @@ func _build_path_and_lantern(rng: RandomNumberGenerator) -> void:
 	lamp.material_override = lamp_mat
 	lamp.position = Vector3(gx, gy + 3.5, gz)
 	props.add_child(lamp)
-	_lantern_mat = lamp_mat
-	_lantern_point = Vector3(gx, gy + 1.0, gz)
+
 	var halo := MeshInstance3D.new()
 	var quad := QuadMesh.new()
 	quad.size = Vector2(9.0, 9.0)
@@ -170,14 +150,16 @@ func _build_path_and_lantern(rng: RandomNumberGenerator) -> void:
 	halo.material_override = halo_mat
 	halo.position = lamp.position
 	props.add_child(halo)
-	_lantern_halo = halo
+
 	var light := OmniLight3D.new()
 	light.light_color = Color(1.0, 0.78, 0.5)
 	light.light_energy = 2.0
 	light.omni_range = 14.0
 	light.position = lamp.position
 	props.add_child(light)
-	_lantern_light = light
+	# 灯りは別のワールドへの入口
+	add_portal(Vector3(gx, gy + 1.0, gz), lantern_next_world, Color(1.0, 0.93, 0.8),
+		light, lamp_mat, halo, lantern_glow_radius, lantern_enter_radius)
 
 
 func _setup_rain_sound() -> void:

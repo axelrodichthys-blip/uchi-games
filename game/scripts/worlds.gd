@@ -4,6 +4,7 @@ class_name WorldList
 
 const WORLDS := [
 	{"name": "雨の景色", "scene": "res://scenes/worlds/rain/rain_world.tscn"},
+	{"name": "ネオン", "scene": "res://scenes/worlds/neon/neon_world.tscn"},
 	{"name": "灰色の世界（検証用）", "scene": "res://scenes/worlds/gray/gray_world.tscn"},
 ]
 
