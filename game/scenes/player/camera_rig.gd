@@ -25,6 +25,8 @@ var _current_distance: float = 0.0
 var _hold_look: bool = false      # 右ボタンを押している間
 var _capture_locked: bool = false # Tab で固定したか
 var _faded: Dictionary = {}       # 透過中の GeometryInstance3D -> true
+var _bob_phase: float = 0.0       # 歩行の揺れの位相（1 歩で 1 周）
+var _bob_amount: float = 0.0      # 今の揺れの大きさ（滑らかに変える）
 
 
 func _ready() -> void:
@@ -75,12 +77,31 @@ func _process(delta: float) -> void:
 		_pitch += dy if Tuning.invert_y else -dy
 		_apply_rotation()
 
-	# 視野角・注視点の高さ
-	var want_fov := Tuning.fov_first_person if first_person else Tuning.fov
+	# 地上の移動速度（揺れと視野角に使う）
+	var body := get_parent() as CharacterBody3D
+	var ground_speed := 0.0
+	var on_floor := true
+	if body:
+		ground_speed = Vector2(body.velocity.x, body.velocity.z).length()
+		on_floor = body.is_on_floor()
+
+	# 視野角: 走ると少し広げて速さを感じさせる
+	var run_t := clampf((ground_speed - Tuning.walk_speed) / maxf(Tuning.run_speed - Tuning.walk_speed, 0.1), 0.0, 1.0)
+	var want_fov := (Tuning.fov_first_person if first_person else Tuning.fov) + Tuning.run_fov_boost * run_t
 	var t := clampf(Tuning.camera_follow_speed * delta, 0.0, 1.0)
 	camera.fov = lerpf(camera.fov, want_fov, t)
+
+	# 注視点の高さ + 歩行の揺れ（1 歩ごとに上下、2 歩で左右に 1 往復）
 	var want_height := Tuning.first_person_eye_height if first_person else Tuning.camera_height
-	position.y = lerpf(position.y, want_height, t)
+	var steps_per_meter := 1.0 / lerpf(Tuning.anim_stride_walk, Tuning.anim_stride_run, run_t)
+	if on_floor and ground_speed > 0.2:
+		_bob_phase = fmod(_bob_phase + ground_speed * steps_per_meter * delta, 1.0)
+	var want_bob := Tuning.camera_bob * clampf(ground_speed / maxf(Tuning.walk_speed, 0.1), 0.0, 1.6) if (on_floor and ground_speed > 0.2) else 0.0
+	_bob_amount = lerpf(_bob_amount, want_bob, clampf(6.0 * delta, 0.0, 1.0))
+	var bob_y := -absf(sin(_bob_phase * PI)) * _bob_amount       # 着地で沈む形
+	var bob_x := sin(_bob_phase * PI) * _bob_amount * 0.5
+	position.y = lerpf(position.y, want_height, t) + bob_y
+	position.x = bob_x
 
 	_update_distance(delta)
 	_update_occluders(delta)

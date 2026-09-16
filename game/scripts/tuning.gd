@@ -33,6 +33,12 @@ var camera_pull_in_speed: float = 20.0   # 物にぶつかって寄るときの�
 var camera_pull_out_speed: float = 4.0   # 元の距離に戻るときの速さ（ゆっくり）
 var occluder_fade: float = 0.75          # 間にある小物の透け具合（0 で透過しない、1 で消える）
 
+# ---- 歩く気持ちよさ ----
+var camera_bob: float = 0.02          # 歩行時のカメラの上下の揺れ m（0 で無し。走ると 1.6 倍まで増える）
+var run_fov_boost: float = 6.0        # 走っているとき視野角を広げる量（度。速さの実感用）
+var footstep_volume_db: float = -8.0  # 足音の音量 dB
+var ambient_volume_db: float = -14.0  # 環境音（雨音など）の音量 dB
+
 # ---- 入力 ----
 var mouse_sensitivity: float = 0.15   # 度 / ピクセル
 var stick_sensitivity: float = 150.0  # 度 / 秒（右スティック）
@@ -83,6 +89,10 @@ const RANGES := {
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
 	"occluder_fade": [0.0, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
+	"camera_bob": [0.0, 0.1, 0.005],
+	"run_fov_boost": [0.0, 20.0, 0.5],
+	"footstep_volume_db": [-40.0, 6.0, 1.0],
+	"ambient_volume_db": [-40.0, 0.0, 1.0],
 	"anim_walk_native_speed": [0.5, 4.0, 0.05],
 	"anim_run_native_speed": [1.5, 8.0, 0.05],
 	"body_scale": [0.7, 1.4, 0.01],

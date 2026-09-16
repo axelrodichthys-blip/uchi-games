@@ -9,10 +9,18 @@ func _ready() -> void:
 	await get_tree().process_frame
 	var player: CharacterBody3D = world.get_node("Player")
 	var start := player.global_position
+	# 足音がアニメの接地に合わせて出るか（1 秒の歩きで 2 回以上）
+	var steps: Array[float] = []
+	var rig: Node = player.get_node("Body/TravelerRig")
+	if rig.has_signal("footstep"):
+		rig.footstep.connect(func(_side: int, strength: float) -> void: steps.append(strength))
 	Input.action_press("move_forward")
 	for i in 60:
 		await get_tree().physics_frame
 	Input.action_release("move_forward")
+	print("[walk_test] 足音: 1秒で %d 回 強さ=%s" % [steps.size(), str(steps)])
+	var steps_ok := steps.size() >= 2 and steps.size() <= 6
+	print("[walk_test] 足音の回数: %s" % ("OK" if steps_ok else "NG"))
 	var moved := player.global_position - start
 	print("[walk_test] 1秒前進: 移動量=%s 速さ=%.2f m/s 向き(y)=%.1f度" % [
 		str(moved.snapped(Vector3(0.01, 0.01, 0.01))),
@@ -95,4 +103,4 @@ func _ready() -> void:
 	var down_ok := down_y < 1.0
 	print("[walk_test] 50度の下り坂を降りる: %s" % ("OK" if down_ok else "NG"))
 
-	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok) else 1)
+	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok) else 1)

@@ -7,6 +7,7 @@ extends CharacterBody3D
 @onready var traveler_procedural: Node3D = $Body/Traveler
 @onready var traveler_rig: Node3D = $Body/TravelerRig
 @onready var camera_rig: Node3D = $CameraRig
+@onready var footsteps: AudioStreamPlayer = $Footsteps
 
 var _speed: float = 0.0
 var _prev_body_yaw: float = 0.0
@@ -15,6 +16,12 @@ var _prev_body_yaw: float = 0.0
 func _ready() -> void:
 	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	# 足音: アニメの接地に合わせて鳴らす。音の組はワールドが決める
+	if traveler_rig.has_signal("footstep"):
+		traveler_rig.footstep.connect(footsteps.on_step)
+	var world := get_parent()
+	if world is WorldBase:
+		footsteps.set_surface(world.footstep_set)
 
 
 func _physics_process(delta: float) -> void:

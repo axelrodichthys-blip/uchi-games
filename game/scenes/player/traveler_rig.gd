@@ -15,6 +15,12 @@ extends Node3D
 const MODEL := preload("res://assets/traveler_mixamo.glb")
 const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "WalkingBackwards"]
 const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
+const FOOT_BONES := ["mixamorig_LeftFoot", "mixamorig_RightFoot"]
+const FOOT_DOWN := 0.225       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
+const FOOT_UP := 0.255         # この高さを超えたら「持ち上がった」（ヒステリシス）
+
+## 足が地面に着いた。side: 0 = 左 / 1 = 右、strength: 0〜1（速いほど・落下が強いほど大）
+signal footstep(side: int, strength: float)
 const JUMP_SEEK := 0.65        # Jump クリップのこの時刻から再生（腕を広げる踏切の溜めを飛ばし、脚を畳む所から）
 const JUMP_SCALE := 0.35       # Jump の空中区間（約 0.35 秒）をこの倍率で引き伸ばし、通常のジャンプ（滞空 1.2 秒）を覆う
 const FALL_AFTER := 1.0        # これより長く空中にいたら落下ポーズ（FallingIdle）へ。崖から落ちたときなど
@@ -25,6 +31,9 @@ const LAND_HARD_TIME := 0.6
 const LAND_HARD_SPEED := 8.0   # この落下速度 m/s 以上で強い着地
 
 var _model: Node3D
+var _skel: Skeleton3D
+var _foot_idx: Array[int] = []
+var _foot_lifted: Array[bool] = [false, false]
 var _player: AnimationPlayer
 var _tree: AnimationTree
 var _move: float = 0.0
@@ -43,6 +52,10 @@ func _ready() -> void:
 	add_child(_model)
 	_model.rotation.y = PI   # Mixamo のモデルは +Z が正面。Godot の前（-Z）に向ける
 	_player = _model.find_child("AnimationPlayer", true, false)
+	_skel = _model.find_child("Skeleton3D", true, false)
+	if _skel:
+		for bone_name in FOOT_BONES:
+			_foot_idx.append(_skel.find_bone(bone_name))
 	for anim_name in _player.get_animation_list():
 		var anim := _player.get_animation(anim_name)
 		anim.loop_mode = Animation.LOOP_LINEAR if anim_name in LOOPING else Animation.LOOP_NONE
@@ -182,11 +195,25 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 	var cur_look: float = _tree.get("parameters/idle_look/blend_amount")
 	_tree.set("parameters/idle_look/blend_amount", lerpf(cur_look, look, clampf(2.0 * delta, 0.0, 1.0)))
 
+	# 足音: 足首の骨が下りてきて接地の高さを切ったら鳴らす（アニメの接地と同期する）
+	if on_floor and _state == "ground" and _move > 0.1 and _skel:
+		for i in _foot_idx.size():
+			if _foot_idx[i] < 0:
+				continue
+			var foot_y := (_skel.global_transform * _skel.get_bone_global_pose(_foot_idx[i])).origin.y - global_position.y
+			if foot_y > FOOT_UP:
+				_foot_lifted[i] = true
+			elif foot_y < FOOT_DOWN and _foot_lifted[i]:
+				_foot_lifted[i] = false
+				footstep.emit(i, clampf(0.35 + 0.65 * _speed_s / maxf(run_speed, 0.1), 0.0, 1.0))
+
 	# 空中と着地
 	if on_floor:
 		if not _was_on_floor and _state != "ground":
 			_state = "land"
 			var hard := absf(vertical_velocity) >= LAND_HARD_SPEED
+			footstep.emit(0, 1.0 if hard else 0.7)
+			footstep.emit(1, 1.0 if hard else 0.7)
 			_land_timer = LAND_HARD_TIME if hard else LAND_SOFT_TIME
 			_tree.set("parameters/state/transition_request", "land")
 			_tree.set("parameters/seek_land/seek_request", LAND_HARD_SEEK if hard else LAND_SOFT_SEEK)

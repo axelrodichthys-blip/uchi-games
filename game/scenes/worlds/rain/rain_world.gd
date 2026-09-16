@@ -5,7 +5,6 @@ extends WorldBase
 
 @export_group("雨")
 @export var rain_height: float = 9.0        # プレイヤーの頭上どこから降らせるか
-@export var rain_volume_db: float = -14.0
 
 @export_group("見つけるもの")
 @export var lantern_position: Vector2 = Vector2(6.0, -140.0)
@@ -28,6 +27,7 @@ func _process(delta: float) -> void:
 	super(delta)
 	# 雨はプレイヤーの周りだけに降らせる（遠くは見えないので無駄にしない）
 	rain.global_position = player.global_position + Vector3(0.0, rain_height, 0.0)
+	rain_sound.volume_db = Tuning.ambient_volume_db
 
 
 func _decorate() -> void:
@@ -143,5 +143,5 @@ func _setup_rain_sound() -> void:
 		stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
 		stream.loop_begin = 0
 		stream.loop_end = int(stream.get_length() * stream.mix_rate)
-	rain_sound.volume_db = rain_volume_db
+	rain_sound.volume_db = Tuning.ambient_volume_db
 	rain_sound.play()

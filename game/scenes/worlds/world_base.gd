@@ -24,6 +24,7 @@ extends Node3D
 
 @export_group("風景")
 @export var fog_density_default: float = 0.012
+@export var footstep_set: String = "stone"   # 足音の組（scenes/player/footsteps.gd の SETS のキー）
 
 @onready var environment: WorldEnvironment = $WorldEnvironment
 @onready var terrain_mesh: MeshInstance3D = $Terrain/MeshInstance3D
