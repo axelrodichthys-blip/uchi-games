@@ -1,8 +1,8 @@
 extends Node
 ## メインシーンを読み込んで数フレーム描画し、PNG を保存して終了する。
 ## 使い方（tools/screenshot.sh から呼ぶ）:
-##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle] [count] [every]
-##   jump は右へ歩きながらジャンプ、hop はその場でジャンプ
+##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle] [count] [every] [world.tscn]
+##   jump は右へ歩きながらジャンプ、hop はその場でジャンプ。world を省略すると main_scene
 ##   count > 1 のときは frames 後から every フレームおきに count 枚撮る（out_1.png, out_2.png ...）。
 ##   動きの指定があるときは横から見えるよう、カメラに対して右へ歩かせる
 
@@ -16,18 +16,22 @@ func _ready() -> void:
 	var action: String = args[2] if args.size() > 2 else ""
 	var count: int = int(args[3]) if args.size() > 3 else 1
 	var every: int = int(args[4]) if args.size() > 4 else 6
+	var world_scene: String = args[5] if args.size() > 5 else ""
 	# ソフトウェア描画は 1 フレームに時間がかかるので、1 フレーム = 物理 1 ステップに固定して再現性を出す
 	Engine.max_physics_steps_per_frame = 1
-	var main_scene: String = ProjectSettings.get_setting("application/run/main_scene")
+	var main_scene: String = world_scene if world_scene != "" else ProjectSettings.get_setting("application/run/main_scene")
 	var packed: PackedScene = load(main_scene)
 	get_tree().root.add_child.call_deferred(packed.instantiate())
 	await get_tree().process_frame
 	await get_tree().process_frame
 	# 動きの確認用: 指定があれば入力を入れ続ける（カメラは横から見る）
 	if action != "":
-		var rig: Node3D = get_tree().root.get_node("GrayWorld/Player/CameraRig")
+		var rig: Node3D = get_tree().get_first_node_in_group("player").get_node("CameraRig")
 		rig._pitch = -3.0
 		rig._target_distance = 3.0
+		if action == "idle":   # 足元の地面を見下ろす（水たまりや影の確認用）
+			rig._pitch = -38.0
+			rig._target_distance = 2.6
 		rig._apply_rotation()
 		if action == "walk":
 			Input.action_press("move_right")

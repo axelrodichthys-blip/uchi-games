@@ -3,8 +3,7 @@ extends Node
 ##   godot --headless --path game res://tools/walk_test.tscn
 
 func _ready() -> void:
-	var main_scene: String = ProjectSettings.get_setting("application/run/main_scene")
-	var world: Node = (load(main_scene) as PackedScene).instantiate()
+	var world: Node = (load("res://scenes/worlds/gray/gray_world.tscn") as PackedScene).instantiate()
 	get_tree().root.add_child.call_deferred(world)
 	await get_tree().process_frame
 	await get_tree().process_frame

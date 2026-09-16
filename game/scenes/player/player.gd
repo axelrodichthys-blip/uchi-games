@@ -13,6 +13,7 @@ var _prev_body_yaw: float = 0.0
 
 
 func _ready() -> void:
+	add_to_group("player")
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 
