@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GPU の無いクラウド環境で、ソフトウェアレンダリング（xvfb + Mesa）を使って
 # ゲーム画面のスクリーンショットを撮る。
-#   bash tools/screenshot.sh [出力.png] [描画フレーム数] [walk|run|jump|idle] [枚数] [間隔フレーム]
+#   bash tools/screenshot.sh [出力.png] [描画フレーム数] [walk|run|jump|hop|idle] [枚数] [間隔フレーム]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT="${1:-build/screenshot.png}"

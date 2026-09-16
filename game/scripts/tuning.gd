@@ -40,8 +40,8 @@ var invert_y: bool = false
 
 # ---- キャラのモデル ----
 var character_model: int = 0          # 0=Mixamo アニメ / 1=数式の仮キャラ（OPTIONS 参照）
-var anim_walk_native_speed: float = 1.5   # Walking クリップが想定している移動速度 m/s（tools/inspect_glb.gd で計測。足が滑るなら調整）
-var anim_run_native_speed: float = 2.4    # Running クリップが想定している移動速度 m/s（計測値）
+var anim_walk_native_speed: float = 1.35  # Walking クリップが想定している移動速度 m/s（tools/inspect_glb.gd で計測。足が滑るなら調整）
+var anim_run_native_speed: float = 3.6    # Running クリップが想定している移動速度 m/s（計測値）
 
 # ---- 仮キャラの体型（倍率。1.0 が基準）----
 var body_scale: float = 1.0

@@ -53,7 +53,11 @@
 - シェルスクリプトは bash、改行コードは LF（Windows で編集しても崩れないよう .gitattributes で固定する）
 - 操作感に関わる数値（カメラ距離・追従速度・歩行速度・視野角・フォグ濃度など）は1つの設定ファイルにまとめ、散らばらせない
 - 調整値をゲーム内でその場で変えられるデバッグパネル（F1で表示）を早い段階で用意する。ユーザーはこれで良い数値を見つけて、次のセッションに数値を伝える
-- **報告の前に自分でテストプレイして自己採点する**（ユーザーの要望）。最低限: `godot --headless --path game res://tools/walk_test.tscn` を通す、見た目の変更は `tools/screenshot.sh` で撮って自分の目で確認する、Web 書き出しをブラウザ（headless Chromium）で起動確認する。報告には「確認したこと / 確認できていないこと / 自己採点」を添える
+- **報告の前に必ず自分でテストプレイし、自己採点して、合格点になるまで検証と修正を繰り返す**（ユーザーの要望。往復を減らすためのルール）。ユーザーに見せるのは自分で合格と判断したものだけ。最低限:
+  - `godot --headless --path game res://tools/walk_test.tscn` を通す
+  - 動きや見た目の変更は `tools/screenshot.sh`（連続コマ）や `tools/clip-view.sh`（クリップ単体）で撮り、自分の目で確認する。特に **キャラの向きが進行方向と一致しているか**、動作の切り替わりに不要な動きが挟まっていないか
+  - Web 書き出しをブラウザ（headless Chromium）で起動確認する
+  - 報告には「確認したこと / 確認できていないこと / 自己採点（10 点満点と減点理由）」を添える。自分で確認できないこと（実機の操作感など）はそう明記する
 
 ## セッションの始め方・終わり方
 
@@ -94,7 +98,8 @@ uchi-games/
 - クラウド: Godot / Blender の導入方法: `bash tools/cloud-setup.sh`（Godot 4.7.2 本体 + Web テンプレートを GitHub リリースから、Blender 4.0.2 を apt から。約1分）
 - クラウド: headless での動作確認: `godot --headless --path game --import` → `godot --headless --path game --quit-after 5`
 - クラウド: 歩行の自動テスト: `godot --headless --path game res://tools/walk_test.tscn`
-- クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump]`（xvfb + Mesa のソフトウェア描画。動作確認済み）
+- クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump] [枚数] [間隔]`（xvfb + Mesa のソフトウェア描画。動作確認済み）。複数枚は `python3 tools/sheet.py build/shot build/sheet.png` で 1 枚に並べる（Pillow が必要: `pip install pillow`）
+- クラウド: アニメクリップ単体の確認: `bash tools/clip-view.sh build/clip Jump 0.0,0.2,0.4`（指定時刻のポーズを PNG に）
 - クラウド: Mixamo の FBX → .glb: `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb`、中身の確認: `godot --headless --path game --script res://tools/inspect_glb.gd -- res://assets/traveler_mixamo.glb`
 - Web書き出しのコマンド: `bash tools/export-web.sh` → `build/web/`（約39MB、スレッド無効ビルド）
 - ブラウザ確認用の URL（GitHub Pages）: https://axelrodichthys-blip.github.io/uchi-games/ （main への push で `.github/workflows/deploy-pages.yml` が自動配置。Pages の有効化が必要）

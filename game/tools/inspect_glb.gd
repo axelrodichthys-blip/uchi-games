@@ -53,37 +53,51 @@ func _init() -> void:
 	quit(0)
 
 
-## クリップを少しずつ進めて左足の前後位置を追い、接地中（後ろへ流れる）の速さの中央値を返す
+## クリップを固定刻みで進めて左足の前後位置を追い、接地中に地面を流れる速さを返す。
+## Mixamo の素のモデルは +Z が正面なので、前進クリップの接地中は足が -Z へ、後退クリップでは +Z へ流れる。
+## 接地中の足は体の速さで一定に流れるので、その向きの速さのうち最速域（最大の 8 割以上）の平均を取る。
+const MODEL_FACING_Z := 1.0   # 素の glb の正面（+1 で +Z）。traveler_rig.gd 側で 180 度回して使っている
+
 func _native_speed(player: AnimationPlayer, skel: Skeleton3D, anim_name: String) -> float:
 	var foot := skel.find_bone("mixamorig_LeftFoot")
 	if foot < 0:
 		return 0.0
 	var anim := player.get_animation(anim_name)
-	var n := int(anim.length * 60.0)
-	var zs: Array[float] = []
-	var ys: Array[float] = []
-	var dts: Array[float] = []
+	var dt := 1.0 / 60.0
+	var n := int(anim.length / dt)
+	# headless ではフレーム間隔が一定でないので、手動更新モードで固定刻みに進めて決定的に測る
+	player.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
 	player.play(anim_name)
-	await process_frame
+	await process_frame   # 初期化を 1 フレーム待つ（手動モードなので勝手には進まない）
+	player.seek(0.0, true)
+	player.advance(0.0)
+	skel.force_update_all_bone_transforms()
+	var vs: Array[float] = []
+	var prev_z := INF
 	for i in n + 1:
-		await process_frame
+		player.advance(dt)
+		skel.force_update_all_bone_transforms()
 		var p := (skel.global_transform * skel.get_bone_global_pose(foot)).origin
-		zs.append(p.z)
-		ys.append(p.y)
-		dts.append(get_root().get_process_delta_time())
-	var dt: float = dts[dts.size() / 2]
-	print("[inspect]   %s 左足 z: %.3f 〜 %.3f, y: %.3f 〜 %.3f, フレーム間隔 %.4f 秒, 骨格スケール %s" % [anim_name, zs.min(), zs.max(), ys.min(), ys.max(), dt, str(skel.global_transform.basis.get_scale())])
-	var back_speeds: Array[float] = []
-	for i in n:
-		var v := (zs[i + 1] - zs[i]) / dt   # +Z = 後ろ
-		if v > 0.05:
-			back_speeds.append(v)
-	back_speeds.sort()
-	if back_speeds.is_empty():
+		if prev_z != INF:
+			vs.append((p.z - prev_z) / dt)
+		prev_z = p.z
+	# 接地中に足が流れる向き: 前進なら正面の逆、後退なら正面
+	var stance_sign := MODEL_FACING_Z if anim_name.to_lower().contains("backward") else -MODEL_FACING_Z
+	var stance: Array[float] = []
+	for v in vs:
+		if v * stance_sign > 0.05:
+			stance.append(v * stance_sign)
+	if stance.is_empty():
 		return 0.0
-	var pct := func(q: float) -> float: return back_speeds[int(clampf(q, 0.0, 0.999) * back_speeds.size())]
-	print("[inspect]   接地中の後ろ向き速度の分布: 25%%=%.2f 50%%=%.2f 75%%=%.2f 90%%=%.2f" % [pct.call(0.25), pct.call(0.5), pct.call(0.75), pct.call(0.9)])
-	return pct.call(0.75)
+	var peak: float = stance.max()
+	var plateau: Array[float] = stance.filter(func(v: float) -> bool: return v >= peak * 0.8)
+	var total := 0.0
+	for v in plateau:
+		total += v
+	var result := total / plateau.size()
+	print("[inspect]   %s 足の前後速度（+Z が正）: %s" % [anim_name, " ".join(vs.map(func(v: float) -> String: return "%.1f" % v))])
+	print("[inspect]   %s 接地中（%s 方向）の最速域 %d サンプル → %.2f m/s" % [anim_name, "+Z" if stance_sign > 0 else "-Z", plateau.size(), result])
+	return result
 
 
 func _dump(node: Node, depth: int) -> void:

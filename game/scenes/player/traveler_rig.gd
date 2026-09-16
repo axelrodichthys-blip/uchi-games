@@ -3,11 +3,26 @@ extends Node3D
 ## AnimationTree をコードで組み、速度や接地状態からブレンドする。
 ##   地上: Idle ↔ Walking ↔ Running（速度でブレンド、足が滑らないよう再生速度も合わせる）
 ##         後ろ向きに動くときは WalkingBackwards
-##   空中: Jump（踏切の直後）→ FallingIdle（落下）→ Landing（着地）
+##   空中: Jump（空中区間をゆっくり再生して滞空全体に使う）→ 長く落ちるときだけ FallingIdle → Landing（低い落下は軽い膝の沈みだけ）
 ## player.gd から毎物理フレーム update_motion() を呼ぶ（数式の仮キャラ traveler.gd と同じ呼び方）。
+##
+## Mixamo のクリップに対する補正（_ready で行う）:
+##   - モデルは +Z が正面なので 180 度回して Godot の前（-Z）に向ける
+##   - Jump / FallingIdle / Landing は腰の位置トラックに「跳び上がる高さ」が入っている。
+##     高さは物理（CharacterBody3D）が動かすので、腰が立ち姿勢より上に浮く分は取り除き、
+##     しゃがみ（下がる分）だけ残す。水平のずれも取り除く
 
 const MODEL := preload("res://assets/traveler_mixamo.glb")
 const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "WalkingBackwards"]
+const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
+const JUMP_SEEK := 0.65        # Jump クリップのこの時刻から再生（腕を広げる踏切の溜めを飛ばし、脚を畳む所から）
+const JUMP_SCALE := 0.35       # Jump の空中区間（約 0.35 秒）をこの倍率で引き伸ばし、通常のジャンプ（滞空 1.2 秒）を覆う
+const FALL_AFTER := 1.0        # これより長く空中にいたら落下ポーズ（FallingIdle）へ。崖から落ちたときなど
+const LAND_SOFT_SEEK := 0.5    # 軽い着地: Landing クリップのこの時刻（浅いしゃがみ）から
+const LAND_SOFT_TIME := 0.32
+const LAND_HARD_SEEK := 0.3    # 強い着地: 足が着いた直後（深いしゃがみ）から
+const LAND_HARD_TIME := 0.6
+const LAND_HARD_SPEED := 8.0   # この落下速度 m/s 以上で強い着地
 
 var _model: Node3D
 var _player: AnimationPlayer
@@ -26,11 +41,48 @@ var _was_on_floor: bool = true
 func _ready() -> void:
 	_model = MODEL.instantiate()
 	add_child(_model)
+	_model.rotation.y = PI   # Mixamo のモデルは +Z が正面。Godot の前（-Z）に向ける
 	_player = _model.find_child("AnimationPlayer", true, false)
 	for anim_name in _player.get_animation_list():
 		var anim := _player.get_animation(anim_name)
 		anim.loop_mode = Animation.LOOP_LINEAR if anim_name in LOOPING else Animation.LOOP_NONE
+	_fix_air_clips()
 	_build_tree()
+
+
+## 空中クリップの腰の位置トラックから「立ち姿勢より上に浮く分」と水平のずれを取り除く
+func _fix_air_clips() -> void:
+	var skel: Skeleton3D = _model.find_child("Skeleton3D", true, false)
+	if skel == null or not _player.has_animation("Idle"):
+		return
+	# 骨のローカル座標 → モデル座標（上下・前後の向きを合わせるため）
+	var basis: Basis = (_model.global_transform.affine_inverse() * skel.global_transform).basis
+	var stand := Vector3.ZERO
+	var found := false
+	var idle := _player.get_animation("Idle")
+	for i in idle.get_track_count():
+		if _is_hips_position_track(idle, i):
+			stand = idle.track_get_key_value(i, 0)
+			found = true
+			break
+	if not found:
+		return
+	for anim_name in AIR_CLIPS:
+		if not _player.has_animation(anim_name):
+			continue
+		var anim := _player.get_animation(anim_name)
+		for i in anim.get_track_count():
+			if not _is_hips_position_track(anim, i):
+				continue
+			for k in anim.track_get_key_count(i):
+				var v: Vector3 = anim.track_get_key_value(i, k)
+				var offset: Vector3 = basis * (v - stand)
+				offset = Vector3(0.0, minf(offset.y, 0.0), 0.0)
+				anim.track_set_key_value(i, k, stand + basis.inverse() * offset)
+
+
+func _is_hips_position_track(anim: Animation, i: int) -> bool:
+	return anim.track_get_type(i) == Animation.TYPE_POSITION_3D and str(anim.track_get_path(i)).to_lower().ends_with("hips")
 
 
 func _build_tree() -> void:
@@ -46,9 +98,15 @@ func _build_tree() -> void:
 	for key in ["walk", "run", "back"]:
 		bt.add_node("ts_" + key, AnimationNodeTimeScale.new())
 		bt.connect_node("ts_" + key, 0, key)
-	# ジャンプは踏切の溜めを飛ばして途中から再生する
+	# ジャンプは踏切の溜めを飛ばして途中から、ゆっくり再生する
+	var ts_jump := AnimationNodeTimeScale.new()
+	bt.add_node("ts_jump", ts_jump)
+	bt.connect_node("ts_jump", 0, "jump")
 	bt.add_node("seek_jump", AnimationNodeTimeSeek.new())
-	bt.connect_node("seek_jump", 0, "jump")
+	bt.connect_node("seek_jump", 0, "ts_jump")
+	# 着地も落下の強さで途中から再生する
+	bt.add_node("seek_land", AnimationNodeTimeSeek.new())
+	bt.connect_node("seek_land", 0, "land")
 
 	var walk_run := AnimationNodeBlend2.new()
 	bt.add_node("walk_run", walk_run)
@@ -78,7 +136,7 @@ func _build_tree() -> void:
 	bt.connect_node("state", 0, "idle_move")
 	bt.connect_node("state", 1, "seek_jump")
 	bt.connect_node("state", 2, "fall")
-	bt.connect_node("state", 3, "land")
+	bt.connect_node("state", 3, "seek_land")
 	bt.connect_node("output", 0, "state")
 
 	_tree = AnimationTree.new()
@@ -89,6 +147,7 @@ func _build_tree() -> void:
 	_tree.anim_player = _tree.get_path_to(_player)
 	_tree.active = true
 	_tree.set("parameters/state/transition_request", "ground")
+	_tree.set("parameters/ts_jump/scale", JUMP_SCALE)
 
 
 ## speed: 水平速度 m/s, on_floor: 接地, vertical_velocity: 上下速度, yaw_rate: 向きの変化 rad/s,
@@ -127,8 +186,10 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 	if on_floor:
 		if not _was_on_floor and _state != "ground":
 			_state = "land"
-			_land_timer = 0.55 if absf(vertical_velocity) > 5.0 else 0.35
+			var hard := absf(vertical_velocity) >= LAND_HARD_SPEED
+			_land_timer = LAND_HARD_TIME if hard else LAND_SOFT_TIME
 			_tree.set("parameters/state/transition_request", "land")
+			_tree.set("parameters/seek_land/seek_request", LAND_HARD_SEEK if hard else LAND_SOFT_SEEK)
 		if _state == "land":
 			_land_timer -= delta
 			if _land_timer <= 0.0 or speed > walk_speed * 0.5:
@@ -141,11 +202,11 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 			if vertical_velocity > 1.0:
 				_state = "jump"
 				_tree.set("parameters/state/transition_request", "jump")
-				_tree.set("parameters/seek_jump/seek_request", 0.45)
+				_tree.set("parameters/seek_jump/seek_request", JUMP_SEEK)
 			elif _air_time > 0.2:
 				_state = "fall"
 				_tree.set("parameters/state/transition_request", "fall")
-		elif _state == "jump" and (_air_time > 0.9 or vertical_velocity < -3.0):
+		elif _state == "jump" and _air_time > FALL_AFTER:
 			_state = "fall"
 			_tree.set("parameters/state/transition_request", "fall")
 	_was_on_floor = on_floor

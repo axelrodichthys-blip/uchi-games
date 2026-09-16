@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c0clipview0001"]
+
+[ext_resource type="Script" path="res://tools/clip_view.gd" id="1"]
+
+[node name="ClipView" type="Node3D"]
+script = ExtResource("1")
