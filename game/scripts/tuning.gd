@@ -48,6 +48,7 @@ var invert_y: bool = false
 var character_model: int = 0          # 0=Mixamo アニメ / 1=数式の仮キャラ（OPTIONS 参照）
 var anim_walk_native_speed: float = 1.35  # Walking クリップが想定している移動速度 m/s（tools/inspect_glb.gd で計測。足が滑るなら調整）
 var anim_run_native_speed: float = 3.6    # Running クリップが想定している移動速度 m/s（計測値）
+var arm_swing: int = 0                    # 0=歩き・走りで腕を振らない（待機の腕） / 1=クリップ通りに振る（OPTIONS 参照）
 
 # ---- 仮キャラの体型（倍率。1.0 が基準）----
 var body_scale: float = 1.0
@@ -65,6 +66,9 @@ var anim_lean_run: float = 12.0      # 走りの前傾（度）
 
 # ---- 風景 ----
 var fog_density: float = 0.012     # フォグの濃さ（大きいほど近くまで霞む）
+var rain_amount: float = 0.6       # 雨の量 0〜1（雨の景色）
+var puddle_amount: float = 0.42    # 水たまりの量 0〜0.9（雨の景色）
+var puddle_size: float = 14.0      # 水たまりの大きさの目安 m（雨の景色）
 
 # デバッグパネル用: 変数名 -> [最小, 最大, 刻み]
 const RANGES := {
@@ -89,6 +93,9 @@ const RANGES := {
 	"camera_pull_out_speed": [0.5, 20.0, 0.5],
 	"occluder_fade": [0.0, 1.0, 0.05],
 	"fog_density": [0.0, 0.08, 0.001],
+	"rain_amount": [0.0, 1.0, 0.05],
+	"puddle_amount": [0.0, 0.9, 0.02],
+	"puddle_size": [3.0, 60.0, 1.0],
 	"camera_bob": [0.0, 0.1, 0.005],
 	"run_fov_boost": [0.0, 20.0, 0.5],
 	"footstep_volume_db": [-40.0, 6.0, 1.0],
@@ -110,6 +117,7 @@ const RANGES := {
 # デバッグパネル用: 選択式の設定。変数名 -> 選択肢の名前（値はその index）
 const OPTIONS := {
 	"character_model": ["Mixamo のアニメ（本命）", "数式の仮キャラ（比較用）"],
+	"arm_swing": ["歩き・走りで腕を振らない（待機の腕）", "クリップ通りに振る"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 }
 

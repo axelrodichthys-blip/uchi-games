@@ -8,6 +8,7 @@ func _ready() -> void:
 	var out_base: String = args[0]
 	var clip: String = args[1]
 	var times: PackedStringArray = args[2].split(",")
+	var view: String = args[3] if args.size() > 3 else "front"   # front / back / side
 	var model: Node3D = (load("res://assets/traveler_mixamo.glb") as PackedScene).instantiate()
 	add_child(model)
 	model.rotation.y = PI   # Godot の前（-Z）を向かせる
@@ -24,6 +25,10 @@ func _ready() -> void:
 	add_child(env)
 	var cam := Camera3D.new()
 	cam.position = Vector3(2.6, 1.2, -2.2)
+	if view == "back":
+		cam.position = Vector3(-1.2, 1.5, 3.2)
+	elif view == "side":
+		cam.position = Vector3(3.4, 1.0, 0.0)
 	cam.fov = 45
 	add_child(cam)
 	cam.current = true

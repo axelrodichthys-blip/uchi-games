@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # GPU の無いクラウド環境で、ソフトウェアレンダリング（xvfb + Mesa）を使って
 # ゲーム画面のスクリーンショットを撮る。
-#   bash tools/screenshot.sh [出力.png] [描画フレーム数] [walk|run|jump|hop|idle] [枚数] [間隔フレーム] [ワールド.tscn]
+#   bash tools/screenshot.sh [出力.png] [描画フレーム数] [walk|run|jump|hop|idle|walk_away|run_away] [枚数] [間隔フレーム] [ワールド.tscn]
 #   例: WORLD=res://scenes/worlds/gray/gray_world.tscn bash tools/screenshot.sh build/g.png 60 walk
 set -euo pipefail
 cd "$(dirname "$0")/.."

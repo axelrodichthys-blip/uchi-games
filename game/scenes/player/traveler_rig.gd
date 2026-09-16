@@ -16,6 +16,7 @@ const MODEL := preload("res://assets/traveler_mixamo.glb")
 const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "WalkingBackwards"]
 const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
 const FOOT_BONES := ["mixamorig_LeftFoot", "mixamorig_RightFoot"]
+const ARM_BONE_KEYS := ["Shoulder", "Arm", "ForeArm", "Hand"]   # 腕の骨（トラックのパスにこの語を含む）
 const FOOT_DOWN := 0.225       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
 const FOOT_UP := 0.255         # この高さを超えたら「持ち上がった」（ヒステリシス）
 
@@ -129,6 +130,24 @@ func _build_tree() -> void:
 	bt.add_node("fwd_back", fwd_back)
 	bt.connect_node("fwd_back", 0, "walk_run")
 	bt.connect_node("fwd_back", 1, "ts_back")
+	# 歩き・走りの間、腕の骨だけ待機ポーズにする（Mixamo の自動リグで腕が胸にめり込むクリップの対策 + 設計上「腕を振らない」）
+	var idle_arms := AnimationNodeAnimation.new()
+	idle_arms.animation = "Idle"
+	bt.add_node("idle_arms", idle_arms)
+	var arms := AnimationNodeBlend2.new()
+	arms.filter_enabled = true
+	var idle_anim := _player.get_animation("Idle")
+	for i in idle_anim.get_track_count():
+		var path := str(idle_anim.track_get_path(i))
+		var bone := path.get_slice(":", 1)
+		for key in ARM_BONE_KEYS:
+			if bone.ends_with(key):
+				arms.set_filter_path(idle_anim.track_get_path(i), true)
+				break
+	bt.add_node("arms", arms)
+	bt.connect_node("arms", 0, "fwd_back")
+	bt.connect_node("arms", 1, "idle_arms")
+
 	var idle_look := AnimationNodeBlend2.new()
 	bt.add_node("idle_look", idle_look)
 	bt.connect_node("idle_look", 0, "idle")
@@ -136,7 +155,7 @@ func _build_tree() -> void:
 	var idle_move := AnimationNodeBlend2.new()
 	bt.add_node("idle_move", idle_move)
 	bt.connect_node("idle_move", 0, "idle_look")
-	bt.connect_node("idle_move", 1, "fwd_back")
+	bt.connect_node("idle_move", 1, "arms")
 
 	var state := AnimationNodeTransition.new()
 	state.input_count = 4
@@ -185,6 +204,9 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 	_tree.set("parameters/walk_run/blend_amount", _run)
 	_tree.set("parameters/fwd_back/blend_amount", _back)
 	_tree.set("parameters/idle_move/blend_amount", _move)
+	var cur_arms: float = _tree.get("parameters/arms/blend_amount")
+	var want_arms := 0.0 if int(Tuning.arm_swing) == 1 else 1.0
+	_tree.set("parameters/arms/blend_amount", lerpf(cur_arms, want_arms, clampf(6.0 * delta, 0.0, 1.0)))
 
 	# 長く立ち止まると見回す
 	if _move < 0.05 and on_floor:

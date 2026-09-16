@@ -1,7 +1,7 @@
 extends Node
 ## メインシーンを読み込んで数フレーム描画し、PNG を保存して終了する。
 ## 使い方（tools/screenshot.sh から呼ぶ）:
-##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle] [count] [every] [world.tscn]
+##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle|walk_away|run_away] [count] [every] [world.tscn]
 ##   jump は右へ歩きながらジャンプ、hop はその場でジャンプ。world を省略すると main_scene
 ##   count > 1 のときは frames 後から every フレームおきに count 枚撮る（out_1.png, out_2.png ...）。
 ##   動きの指定があるときは横から見えるよう、カメラに対して右へ歩かせる
@@ -40,6 +40,11 @@ func _ready() -> void:
 			Input.action_press("run")
 		elif action == "jump":
 			Input.action_press("move_right")
+		elif action == "walk_away":
+			Input.action_press("move_forward")
+		elif action == "run_away":
+			Input.action_press("move_forward")
+			Input.action_press("run")
 	for i in frames:
 		if (action == "jump" or action == "hop") and i == frames - 14:
 			Input.action_press("jump")
