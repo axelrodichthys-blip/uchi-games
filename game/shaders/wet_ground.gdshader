@@ -12,6 +12,7 @@ uniform float puddle_scale = 0.07;      // 水たまりの大きさ（小さい�
 uniform float puddle_amount = 0.42;     // 水たまりの量 0〜1
 uniform float ripple_density = 1.4;     // 波紋の密度（1m あたりの個数の目安）
 uniform float ripple_speed = 1.1;       // 波紋が広がる速さ
+uniform float ripple_rate = 0.6;        // 波紋の出る割合 0〜1（雨の量と連動。Tuning.rain_amount）
 uniform float wet_roughness = 0.85;     // 水たまり以外の濡れた地面の粗さ
 
 varying vec3 world_pos;
@@ -45,7 +46,12 @@ float ripples(vec2 p, float t) {
 	vec2 f = fract(p) - 0.5;
 	float h = hash21(cell);
 	vec2 center = (vec2(hash21(cell + 7.1), hash21(cell + 3.7)) - 0.5) * 0.4;
-	float phase = fract(t * ripple_speed * (0.7 + 0.6 * h) + h * 7.0);
+	float cycle_t = t * ripple_speed * (0.7 + 0.6 * h) + h * 7.0;
+	float phase = fract(cycle_t);
+	// 周期ごとに「この周期は波紋を出すか」を抽選し、出る割合を雨の量に合わせる
+	if (hash21(cell + floor(cycle_t) * 0.371) > ripple_rate) {
+		return 0.0;
+	}
 	float radius = phase * 0.28;
 	float d = length(f - center);
 	float ring = smoothstep(0.035, 0.0, abs(d - radius));

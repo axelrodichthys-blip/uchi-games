@@ -39,6 +39,8 @@ func _process(delta: float) -> void:
 	if mat:
 		if not is_equal_approx(float(mat.get_shader_parameter("puddle_amount")), Tuning.puddle_amount):
 			mat.set_shader_parameter("puddle_amount", Tuning.puddle_amount)
+		if not is_equal_approx(float(mat.get_shader_parameter("ripple_rate")), Tuning.rain_amount):
+			mat.set_shader_parameter("ripple_rate", Tuning.rain_amount)
 		var scale := 1.0 / maxf(Tuning.puddle_size, 1.0)
 		if not is_equal_approx(float(mat.get_shader_parameter("puddle_scale")), scale):
 			mat.set_shader_parameter("puddle_scale", scale)

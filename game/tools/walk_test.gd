@@ -103,4 +103,35 @@ func _ready() -> void:
 	var down_ok := down_y < 1.0
 	print("[walk_test] 50度の下り坂を降りる: %s" % ("OK" if down_ok else "NG"))
 
-	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok) else 1)
+	# 段差: 階段（0.25m × 4）を歩いて登る
+	var step_ok := await _walk_and_check(player, Vector3(6.0, 0.5, 7.5), "move_back", 240, 0.95, "階段（0.25m 段）を歩いて登る")
+	# 段差: 0.45m の段（膝）を歩いて登る
+	var knee_ok := await _walk_and_check(player, Vector3(12.0, 0.5, 8.0), "move_back", 180, 0.4, "0.45m の段を足で登る")
+	# 段差: 1.5m の段（肩）をよじ登る
+	var climb_ok := await _walk_and_check(player, Vector3(22.0, 0.5, 8.0), "move_back", 240, 1.4, "1.5m の段をよじ登る")
+	# 段差: 2.2m の段は登れない
+	player.global_position = Vector3(27.0, 0.5, 8.0)
+	player.velocity = Vector3.ZERO
+	Input.action_press("move_back")
+	var wall_y := 0.0
+	for i in 180:
+		await get_tree().physics_frame
+		wall_y = maxf(wall_y, player.global_position.y)
+	Input.action_release("move_back")
+	var wall_ok := wall_y < 0.3
+	print("[walk_test] 2.2m の段は登れない: %s（最高 %.2f）" % ["OK" if wall_ok else "NG", wall_y])
+	get_tree().quit(0 if (ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok) else 1)
+
+
+func _walk_and_check(player: CharacterBody3D, start: Vector3, action: String, frames: int, min_y: float, label: String) -> bool:
+	player.global_position = start
+	player.velocity = Vector3.ZERO
+	Input.action_press(action)
+	var y := 0.0
+	for i in frames:
+		await get_tree().physics_frame
+		y = maxf(y, player.global_position.y)
+	Input.action_release(action)
+	var passed := y >= min_y
+	print("[walk_test] %s: %s（最高 %.2f, 位置 %s）" % [label, "OK" if passed else "NG", y, str(player.global_position.snapped(Vector3(0.1, 0.1, 0.1)))])
+	return passed

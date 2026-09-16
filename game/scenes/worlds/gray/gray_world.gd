@@ -12,6 +12,7 @@ extends WorldBase
 @export var steep_hill_height: float = 17.0  # 半径10で高さ17 → 約60度（登れない）
 @export var test_area_center: Vector2 = Vector2(-22.0, -18.0)  # 坂と崖の検証エリア（開始地点の左前）
 @export var test_area_height: float = 7.0
+@export var steps_origin: Vector2 = Vector2(6.0, 10.0)   # 階段と段差の検証（開始地点の右後ろ）
 
 @onready var landmarks: Node3D = $Landmarks
 @onready var test_area: Node3D = $TestArea
@@ -28,6 +29,8 @@ func _terrain_height(x: float, z: float) -> float:
 	amp *= smoothstep(steep_hill_radius, steep_hill_radius + 8.0, d)
 	# 検証エリアの周りも平らにする
 	amp *= smoothstep(22.0, 30.0, Vector2(x, z).distance_to(test_area_center))
+	# 階段と段差の検証エリアの周りも平らにする
+	amp *= smoothstep(18.0, 28.0, Vector2(x, z).distance_to(steps_origin + Vector2(10.0, 3.0)))
 	var h := _noise.get_noise_2d(x, z) * amp
 	h += steep_hill_height * clampf(1.0 - d / steep_hill_radius, 0.0, 1.0)
 	return h
@@ -36,7 +39,23 @@ func _terrain_height(x: float, z: float) -> float:
 func _decorate() -> void:
 	_box_material = WorldBase.flat_material(Color(0.42, 0.43, 0.46))
 	_build_test_area()
+	_build_steps()
 	_spawn_landmarks()
+
+
+## 階段（1 段 0.25m × 4）と、高さ違いの段（0.45 / 1.0 / 1.5 / 2.2m）。+Z 方向（開始地点の後ろ）へ並べる
+func _build_steps() -> void:
+	var mat: Material = terrain_mesh.material_override
+	var ox := steps_origin.x
+	var oz := steps_origin.y
+	for i in 4:
+		var h := 0.25 * (i + 1)
+		add_static_box(test_area, Vector3(ox, h * 0.5, oz + i * 1.0), Vector3(4.0, h, 1.0), Vector3.ZERO, mat, 1)
+	add_static_box(test_area, Vector3(ox, 0.5, oz + 4.5), Vector3(4.0, 1.0, 2.0), Vector3.ZERO, mat, 1)   # 階段の踊り場
+	var heights := [0.45, 1.0, 1.5, 2.2]
+	for i in heights.size():
+		var h: float = heights[i]
+		add_static_box(test_area, Vector3(ox + 6.0 + i * 5.0, h * 0.5, oz + 2.0), Vector3(3.0, h, 3.0), Vector3.ZERO, mat, 1)
 
 
 # ---------------------------------------------------------------- 検証エリア

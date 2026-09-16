@@ -30,6 +30,8 @@ const LAND_SOFT_TIME := 0.32
 const LAND_HARD_SEEK := 0.3    # 強い着地: 足が着いた直後（深いしゃがみ）から
 const LAND_HARD_TIME := 0.6
 const LAND_HARD_SPEED := 8.0   # この落下速度 m/s 以上で強い着地
+const CLIMB_SEEK := 0.72       # よじ登り: Jump クリップの脚を畳んだ姿勢をゆっくり流す（専用クリップが無いので仮）
+const CLIMB_SCALE := 0.25
 
 var _model: Node3D
 var _skel: Skeleton3D
@@ -46,6 +48,7 @@ var _air_time: float = 0.0
 var _land_timer: float = 0.0
 var _idle_time: float = 0.0
 var _was_on_floor: bool = true
+var _climbing: bool = false
 
 
 func _ready() -> void:
@@ -157,18 +160,29 @@ func _build_tree() -> void:
 	bt.connect_node("idle_move", 0, "idle_look")
 	bt.connect_node("idle_move", 1, "arms")
 
+	# よじ登り（仮）: Jump クリップの別インスタンスをゆっくり流す
+	var climb_anim := AnimationNodeAnimation.new()
+	climb_anim.animation = "Jump"
+	bt.add_node("climb", climb_anim)
+	bt.add_node("ts_climb", AnimationNodeTimeScale.new())
+	bt.connect_node("ts_climb", 0, "climb")
+	bt.add_node("seek_climb", AnimationNodeTimeSeek.new())
+	bt.connect_node("seek_climb", 0, "ts_climb")
+
 	var state := AnimationNodeTransition.new()
-	state.input_count = 4
+	state.input_count = 5
 	state.set_input_name(0, "ground")
 	state.set_input_name(1, "jump")
 	state.set_input_name(2, "fall")
 	state.set_input_name(3, "land")
+	state.set_input_name(4, "climb")
 	state.xfade_time = 0.15
 	bt.add_node("state", state)
 	bt.connect_node("state", 0, "idle_move")
 	bt.connect_node("state", 1, "seek_jump")
 	bt.connect_node("state", 2, "fall")
 	bt.connect_node("state", 3, "seek_land")
+	bt.connect_node("state", 4, "seek_climb")
 	bt.connect_node("output", 0, "state")
 
 	_tree = AnimationTree.new()
@@ -180,11 +194,29 @@ func _build_tree() -> void:
 	_tree.active = true
 	_tree.set("parameters/state/transition_request", "ground")
 	_tree.set("parameters/ts_jump/scale", JUMP_SCALE)
+	_tree.set("parameters/ts_climb/scale", CLIMB_SCALE)
+
+
+## よじ登りの開始 / 終了（player.gd から）
+func set_climbing(on: bool) -> void:
+	_climbing = on
+	if on:
+		_state = "climb"
+		_tree.set("parameters/state/transition_request", "climb")
+		_tree.set("parameters/seek_climb/seek_request", CLIMB_SEEK)
+	else:
+		_state = "land"
+		_land_timer = LAND_SOFT_TIME
+		_tree.set("parameters/state/transition_request", "land")
+		_tree.set("parameters/seek_land/seek_request", LAND_SOFT_SEEK)
+		_was_on_floor = true
 
 
 ## speed: 水平速度 m/s, on_floor: 接地, vertical_velocity: 上下速度, yaw_rate: 向きの変化 rad/s,
 ## forward_dot: 進行方向と体の向きの内積（+1 前進 / -1 後退）
 func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_rate: float, forward_dot: float, delta: float) -> void:
+	if _climbing:
+		return
 	_speed_s = lerpf(_speed_s, speed, clampf(10.0 * delta, 0.0, 1.0))
 	var walk_speed: float = Tuning.walk_speed
 	var run_speed: float = Tuning.run_speed

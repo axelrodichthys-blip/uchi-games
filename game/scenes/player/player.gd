@@ -11,6 +11,14 @@ extends CharacterBody3D
 
 var _speed: float = 0.0
 var _prev_body_yaw: float = 0.0
+# よじ登り（climb）: 前に進み続けて肩〜首くらいの段差に当たったら、上に登る
+var _climbing: bool = false
+var _climb_from: Vector3
+var _climb_to: Vector3
+var _climb_t: float = 0.0
+var _climb_duration: float = 0.5
+var _climb_anim: bool = false   # 登りアニメを使う（高い段）か、歩いたまま（低い段）か
+var _push_time: float = 0.0   # 壁を押し続けている時間
 
 
 func _ready() -> void:
@@ -27,6 +35,9 @@ func _ready() -> void:
 func _physics_process(delta: float) -> void:
 	floor_max_angle = deg_to_rad(Tuning.slope_max_angle)
 	floor_snap_length = Tuning.floor_snap
+	if _climbing:
+		_update_climb(delta)
+		return
 
 	# 重力・ジャンプ
 	if is_on_floor():
@@ -68,6 +79,13 @@ func _physics_process(delta: float) -> void:
 
 	body.visible = not camera_rig.first_person
 	move_and_slide()
+	# 段差: 進もうとして壁に当たっているとき、目の前の段に登れるか調べる
+	if dir.length_squared() > 0.0 and is_on_wall() and is_on_floor():
+		_push_time += delta
+		if _try_start_climb(dir.normalized()):
+			return
+	else:
+		_push_time = 0.0
 	var yaw_rate := angle_difference(_prev_body_yaw, body.rotation.y) / delta
 	_prev_body_yaw = body.rotation.y
 	# 進行方向と体の向き（-Z が前）の内積。一人称で後ろ歩きしたときに -1 になる
@@ -76,8 +94,95 @@ func _physics_process(delta: float) -> void:
 	var forward_dot := 1.0
 	if horizontal_speed > 0.1:
 		forward_dot = forward.dot(Vector3(velocity.x, 0, velocity.z) / horizontal_speed)
+	_active_model().update_motion(horizontal_speed, is_on_floor(), velocity.y, yaw_rate, forward_dot, delta)
+
+
+func _active_model() -> Node3D:
 	var use_rig := int(Tuning.character_model) == 0
 	traveler_rig.visible = use_rig
 	traveler_procedural.visible = not use_rig
-	var active: Node3D = traveler_rig if use_rig else traveler_procedural
-	active.update_motion(horizontal_speed, is_on_floor(), velocity.y, yaw_rate, forward_dot, delta)
+	return traveler_rig if use_rig else traveler_procedural
+
+
+## 目の前の段の上面を探す。戻り値: {"landing": Vector3, "rise": float} または空。
+## レイで「足元の高さに障害物がある」「max_h の高さでは前が空いている」「その先に立てる面がある」を確かめ、
+## 最後にカプセルがその場所に収まるかを形状判定で確かめる（test_move はめり込み状態に弱いので使わない）
+func _find_ledge(dir: Vector3, max_h: float) -> Dictionary:
+	var space := get_world_3d().direct_space_state
+	var feet := global_position
+	var reach := dir * 0.5   # カプセル半径 0.3 + 余裕
+	var mask := 1 | 4         # 地形 + 小物
+	var ex: Array[RID] = [get_rid()]
+	var low := PhysicsRayQueryParameters3D.create(feet + Vector3.UP * 0.08, feet + Vector3.UP * 0.08 + reach, mask, ex)
+	if space.intersect_ray(low).is_empty():
+		return {}   # 足元に障害物が無い
+	var top_y := feet.y + max_h + 0.1
+	var high := PhysicsRayQueryParameters3D.create(Vector3(feet.x, top_y, feet.z), Vector3(feet.x, top_y, feet.z) + reach, mask, ex)
+	if not space.intersect_ray(high).is_empty():
+		return {}   # max_h の高さでも壁がある（高すぎる）
+	var down := PhysicsRayQueryParameters3D.create(Vector3(feet.x, top_y, feet.z) + reach, feet + reach + Vector3.UP * 0.02, mask, ex)
+	var top := space.intersect_ray(down)
+	if top.is_empty():
+		return {}
+	var normal: Vector3 = top["normal"]
+	if normal.y < cos(floor_max_angle):
+		return {}   # 段の上が急斜面
+	var landing: Vector3 = top["position"]
+	var rise := landing.y - feet.y
+	if rise < 0.05 or rise > max_h:
+		return {}
+	# その場所にカプセルが収まるか（少し細くして判定）
+	var probe := PhysicsShapeQueryParameters3D.new()
+	var capsule := CapsuleShape3D.new()
+	capsule.radius = 0.24
+	capsule.height = 1.5
+	probe.shape = capsule
+	probe.transform = Transform3D(Basis.IDENTITY, landing + Vector3.UP * (0.8 + 0.06))
+	probe.collision_mask = mask
+	probe.exclude = ex
+	if not space.intersect_shape(probe, 1).is_empty():
+		return {}
+	return {"landing": landing, "rise": rise}
+
+
+## 段差: 膝までは歩いたまま足で（短い登り動作、アニメはそのまま）、肩〜首までは腕で登る（登りアニメ）
+func _try_start_climb(dir: Vector3) -> bool:
+	var ledge := _find_ledge(dir, Tuning.climb_height)
+	if ledge.is_empty():
+		return false
+	var rise: float = ledge["rise"]
+	var big := rise > Tuning.step_height
+	if big and _push_time < 0.12:
+		return false   # 高い段は「押し続けたら」登る
+	_climbing = true
+	_climb_from = global_position
+	_climb_to = ledge["landing"] + Vector3.UP * 0.02
+	_climb_t = 0.0
+	_climb_duration = Tuning.climb_time if big else clampf(rise / maxf(Tuning.step_height, 0.01) * 0.25, 0.08, 0.25)
+	_climb_anim = big
+	_push_time = 0.0
+	velocity = Vector3.ZERO
+	if not camera_rig.first_person:
+		body.rotation.y = atan2(-dir.x, -dir.z)
+	var model := _active_model()
+	if big and model.has_method("set_climbing"):
+		model.set_climbing(true)
+	return true
+
+
+## 登っている間: 上へ上がってから前へ出る軌道で、当たり判定を無視して移動する
+func _update_climb(delta: float) -> void:
+	_climb_t = minf(_climb_t + delta / maxf(_climb_duration, 0.05), 1.0)
+	var up_part := clampf(_climb_t / 0.6, 0.0, 1.0)
+	var fwd_part := clampf((_climb_t - 0.4) / 0.6, 0.0, 1.0)
+	var y := lerpf(_climb_from.y, _climb_to.y, up_part * up_part * (3.0 - 2.0 * up_part))
+	var xz := _climb_from.lerp(_climb_to, fwd_part * fwd_part * (3.0 - 2.0 * fwd_part))
+	global_position = Vector3(xz.x, y, xz.z)
+	var model := _active_model()
+	# 低い段は歩きアニメのまま（速さを渡して足を動かし続ける）
+	model.update_motion(0.0 if _climb_anim else _speed, true, 0.0, 0.0, 1.0, delta)
+	if _climb_t >= 1.0:
+		_climbing = false
+		velocity = Vector3.ZERO
+		if _climb_anim and model.has_method("set_climbing"):
+			model.set_climbing(false)

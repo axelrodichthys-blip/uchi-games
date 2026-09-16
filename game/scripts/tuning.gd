@@ -14,6 +14,9 @@ var jump_velocity: float = 5.9     # ジャンプの初速 m/s（5.9 で約 1.8m
 var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱いで登れず滑る（度）
 var air_control: float = 0.3       # 空中での操作の効き（0 で効かない、1 で地上と同じ）
 var floor_snap: float = 0.5        # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
+var step_height: float = 0.5       # この高さまでの段差は歩いたまま足で登る m（膝くらい）
+var climb_height: float = 1.7      # この高さまでの段差は前に進み続けると腕で登る m（肩〜首くらい）
+var climb_time: float = 0.7        # 登る動作にかかる秒数
 
 # ---- カメラ（三人称）----
 var camera_distance: float = 4.0   # キャラからカメラまでの距離 m
@@ -46,8 +49,8 @@ var invert_y: bool = false
 
 # ---- キャラのモデル ----
 var character_model: int = 0          # 0=Mixamo アニメ / 1=数式の仮キャラ（OPTIONS 参照）
-var anim_walk_native_speed: float = 1.35  # Walking クリップが想定している移動速度 m/s（tools/inspect_glb.gd で計測。足が滑るなら調整）
-var anim_run_native_speed: float = 3.6    # Running クリップが想定している移動速度 m/s（計測値）
+var anim_walk_native_speed: float = 3.0   # Walking クリップの再生速度の基準 m/s（ユーザーの調整値 2026-09-16。計測値は 1.35）
+var anim_run_native_speed: float = 6.2    # Running クリップの再生速度の基準 m/s（ユーザーの調整値 2026-09-16。計測値は 3.6）
 var arm_swing: int = 0                    # 0=歩き・走りで腕を振らない（待機の腕） / 1=クリップ通りに振る（OPTIONS 参照）
 
 # ---- 仮キャラの体型（倍率。1.0 が基準）----
@@ -80,6 +83,9 @@ const RANGES := {
 	"jump_velocity": [2.0, 10.0, 0.1],
 	"slope_max_angle": [20.0, 80.0, 1.0],
 	"air_control": [0.0, 1.0, 0.05],
+	"step_height": [0.1, 1.0, 0.05],
+	"climb_height": [0.5, 2.5, 0.05],
+	"climb_time": [0.2, 2.0, 0.05],
 	"camera_distance": [1.5, 10.0, 0.1],
 	"camera_height": [0.5, 3.0, 0.05],
 	"camera_follow_speed": [1.0, 30.0, 0.5],

@@ -24,9 +24,20 @@ func _ready() -> void:
 	get_tree().root.add_child.call_deferred(packed.instantiate())
 	await get_tree().process_frame
 	await get_tree().process_frame
+	# 環境変数で位置と Tuning を上書きできる（例: UCHI_POS="19,0.5,12" UCHI_TUNING="rain_amount=0.1,puddle_amount=0.6"）
+	var player_node: Node3D = get_tree().get_first_node_in_group("player")
+	if OS.has_environment("UCHI_POS"):
+		var p := OS.get_environment("UCHI_POS").split(",")
+		if p.size() == 3:
+			player_node.global_position = Vector3(float(p[0]), float(p[1]), float(p[2]))
+	if OS.has_environment("UCHI_TUNING"):
+		for pair in OS.get_environment("UCHI_TUNING").split(","):
+			var kv := pair.split("=")
+			if kv.size() == 2:
+				Tuning.set(kv[0].strip_edges(), float(kv[1]))
 	# 動きの確認用: 指定があれば入力を入れ続ける（カメラは横から見る）
 	if action != "":
-		var rig: Node3D = get_tree().get_first_node_in_group("player").get_node("CameraRig")
+		var rig: Node3D = player_node.get_node("CameraRig")
 		rig._pitch = -3.0
 		rig._target_distance = 3.0
 		if action == "idle":   # 足元の地面を見下ろす（水たまりや影の確認用）
