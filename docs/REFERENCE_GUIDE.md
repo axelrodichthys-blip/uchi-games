@@ -8,15 +8,19 @@ Mixamo での歩行アニメ付けに進める。
 
 ## 1. 先に決めておくこと（3D 化の前提）
 
-| 項目 | 推奨 | 理由 |
+**形と頭身の基準は `docs/reference/character/sketches/` の 3 枚のスケッチ（2026-09-17 ユーザー作）。** 変えない。
+観察メモは同じフォルダの `README.md`。以下はそのスケッチを 3D 化・画像化するときの扱い。
+
+| 項目 | スケッチから決まること | 3D 化での扱い |
 |---|---|---|
-| 身体の構造 | **人型。腕・脚がはっきり分かれて見える** | Mixamo の自動リグは「頭・両手首・両肘・両膝・股」の位置を指定する方式。脚が隠れていると失敗する |
-| 長いコート | **膝上まで、または前が割れている**（脚が見える） | 足首まで覆う筒状のコートは、歩くと脚が布を貫通する。裾は「布」ではなく「短いスカート状」として扱える長さに |
-| 身体の色 | 参考画像では **真っ黒ではなく濃いグレー（炭色）で陰影あり** | 真っ黒のシルエットは AI の 3D 生成が形を読めない。最終的な「真っ黒」は Godot 側の材質で再現する |
-| 目 | 白い丸い点 2 つ（顔の前面にはっきり） | 向きの目印になる。感情表現もここで |
-| ポーズ | **A ポーズ**（腕を体から 30〜45 度開く）、脚は肩幅、指は自然に開く | T ポーズより肩まわりが自然に変形し、コートとも干渉しにくい |
-| 頭身 | 4〜5 頭身、身長 1.5〜1.6 m 想定 | ローポリ・スタイライズド向き。ワールドの箱や柱との比率もこれで決める |
-| 持ち物 | 最初は **無し**（帽子のみ） | 杖・ランタン・鞄は別パーツとして後から追加できる。最初から持たせるとリグとアニメが難しくなる |
+| 身体の構造 | 素体は首の無い細身の人型。腕・脚は長くて細い。手は 4 本指、足はつま先 3 つの丸い塊 | Mixamo の自動リグは「頭・両手首・両肘・両膝・股」を指定する方式。**ポンチョを外した姿（02）で A ポーズのメッシュを渡す** |
+| ポンチョ | 肩からすねの中ほどまでのテント型。左胸のボタン 1 つで留め、前は重ね合わせ。**腕は中に隠れて見えない** | リグの後に Blender で被せ、胴の骨 + 布の骨の鎖に重みを付ける（`tools/blender/add_cloth_bones.py`）。脚との干渉は SpringBone の当たりで押し出す |
+| 頭身 | 素体で約 5 頭身。脚が全高の約半分。完成形は帽子の先まで入れて縦長 | 身長は帽子の先まで **2.0 m 前後**（今のモデルと同じ縮尺。ワールドの小物との比率を保つ） |
+| 身体の色 | 真っ黒（目だけ白い楕円）。口・鼻なし | 画像生成では **濃い炭色 + 弱い陰影**で頼む（真っ黒だと形が読めない）。真っ黒は Godot の材質で再現 |
+| 衣装の色 | スケッチは鉛筆のみ。色は未決定 | 当面: 帽子・ポンチョは今のモデルと同じ **くすんだサンドベージュ**、手袋は生成り、ブーツは暗い茶灰、上着・半ズボンはくすんだ土色。**最終的な色はユーザーが決める**（2-4 のパレット） |
+| 目 | 縦長の楕円の白 2 つ。帽子のつばと襟の間の黒い帯に見える | 向きの目印。感情表現もここで |
+| ポーズ | — | **A ポーズ**（腕を 30〜45 度開く）、脚は肩幅。ポンチョ姿の絵でも中の腕は A ポーズのつもりで |
+| 持ち物 | 腰の後ろの鞄（ベルトで留める） | 鞄は胴の骨に付ける小さな別パーツ。杖・ランタンは無し |
 
 ---
 
@@ -28,7 +32,7 @@ Mixamo での歩行アニメ付けに進める。
 - 角度: **正面 / 左側面 / 背面 / 右側面**（左右対称なら右側面は省略可）
 - 追加: **正面斜め 45 度** 1 枚（立体感の確認用）
 - 条件:
-  - 全ての角度で A ポーズ、**同じ身長・同じ位置に頭・腰・足**（横一列に並べ、ガイド線で揃える）
+  - 全ての角度で同じ立ち姿（ポンチョ姿は腕が見えないので A ポーズの指定は不要。ポンチョ無しの版は A ポーズ）、**同じ身長・同じ位置に帽子の先・つば・裾・靴底**（横一列に並べ、ガイド線で揃える）
   - 正射投影（パースなし。遠近で足が小さくならない）
   - 光は平坦（強い陰影・落ち影・逆光なし）。白またはごく薄いグレーの無地背景
   - 全身が画面に収まる（足先・帽子の先が切れない）
@@ -40,7 +44,7 @@ Mixamo での歩行アニメ付けに進める。
 - 目が感情を出すなら「通常 / まばたき / 驚き / 見上げる」の 4 パターンも
 
 ### 2-3. 部位のディテール
-- コートの裾・襟・袖口・継ぎ当て・ほつれ、帽子の折れ、靴（あるなら）を 1 枚に並べる
+- 帽子の継ぎ当て・つば、ポンチョのボタンと合わせ目・裾、ブーツのカフス、手袋、ベルトのバックル、腰の鞄を 1 枚に並べる
 - 「くたびれ方」はここで決める。3D にするときは **形で表現できるもの**（折れ、破れ、裾の不揃い）が有効。色ムラや汚れは材質側で少し入れる程度
 
 ### 2-4. カラーパレット
@@ -52,63 +56,123 @@ Mixamo での歩行アニメ付けに進める。
 
 ---
 
-## 3. ChatGPT に渡すプロンプト例
+## 3. ChatGPT に渡すプロンプト（1 画像 = 1 セッション方式）
 
-英語のほうが安定する。まずキャラの基本設定を 1 回で固定し、以降は「同じキャラで」と続ける。
+**方式**: 画像を 1 枚作るたびに ChatGPT の新しいチャットを開く。前のやり取りに頼れないので、
+**毎回「スケッチを添付 + キャラの説明の全文 + その画像の指定 + 避けたいもの」の 4 点セット**で渡す。
 
-### 基本設定（最初に 1 回）
+### 毎回の手順
+1. 新しいチャットを開く
+2. `docs/reference/character/sketches/01_traveler_full.jpg` を添付する（衣装の中身が要る画像は `02`、素体が要る画像は `03` も添付）
+3. 下の **共通ブロック A**（キャラの説明）をそのまま貼る
+4. 続けて、作りたい画像の **ブロック B** を貼る
+5. 最後に **共通ブロック C**（避けたいもの）を貼る
+6. 出来た画像を `docs/reference/character/` に、ファイル名に内容を入れて保存する（例 `traveler_turnaround.png`）
+
+### 共通ブロック A: キャラの説明（毎回そのまま貼る）
 ```
-A stylized low-poly-friendly game character design: a small wandering traveler.
-Dark charcoal grey body (NOT pure black, keep soft shading so the 3D form reads),
-two simple round white eyes, a tall pointed wizard-style hat that is slightly bent and worn,
-a long weathered coat that ends just above the knees with a slit at the front so both legs are clearly visible,
-simple arms and legs like a human, mitten-like simple hands, simple boots.
-Proportions about 4.5 heads tall. Flat shading, no texture detail, muted palette.
-Plain white background, no text.
+Reference: the attached pencil sketch is the ONLY source of truth for this character's shape and proportions.
+Follow the sketch's silhouette and proportions exactly. Do not redesign, do not add details that are not in the sketch.
+
+Character: a small wandering traveler for a quiet, stylized low-poly 3D game.
+- Overall silhouette: two stacked cones — a tall pointed hat on top, and a tent-shaped poncho below.
+  Only two thin stick legs and a pair of big boots show below the poncho hem. The arms are hidden inside the poncho.
+- Body: very dark charcoal (not pure black; keep faint shading so the form reads). No neck; the egg-shaped head flows into the torso.
+  Two tall oval white eyes, no mouth, no nose. A small feather-like tuft at the top back of the head (hidden under the hat when worn).
+- Hat: a tall, slightly worn cone whose tip leans a little backward; a short flat brim that curls up slightly at the edges;
+  one round stitched patch on the front of the cone. Under the brim, the head is a dark band with the two white eyes.
+- Poncho: one piece of cloth from the shoulders down to mid-shin, widening evenly like a tent; the hem is slightly wavy.
+  A stand-up collar hides the lower half of the head so only the eyes show between the brim and the collar.
+  Closed by ONE large round button on the left chest; one front panel overlaps the other, making a single vertical seam down to the hem.
+- Legs: thin dark sticks. Boots: big compared to the legs, with a folded-over cuff at the top and a rounded toe; boot height about equal to the visible leg.
+- Colors (placeholder, muted and flat): hat and poncho in faded sand beige, boots in dark grey-brown, body charcoal, eyes off-white.
+- Proportions: with the sole at 0 and the hat tip at 1.0 — boots 0–0.11, visible legs 0.11–0.21, poncho 0.21–0.74,
+  eye band 0.74–0.80, brim at 0.80, hat cone 0.81–1.0. Poncho hem width about 0.42 of the total height.
+Style: flat shading, clean simple shapes, no texture detail, muted palette, plain white background, no text.
 ```
 
-### 全身ターンアラウンド
+### 共通ブロック C: 避けたいもの（毎回末尾に貼る）
 ```
-Character turnaround sheet of the same traveler character.
+No dramatic lighting, no cast shadows, no motion blur, no billowing cloth, no visible arms or hands outside the poncho (unless asked),
+no face other than the two oval eyes, no cropped body parts, no glow effects, no background scenery, only one character, no text or labels.
+```
+
+### ブロック B: 作りたい画像ごとの指定（1 セッションに 1 つ）
+
+**B-1 全身ターンアラウンド（最重要。添付: 01）**
+```
+Make a character turnaround sheet of this exact character.
 Four views side by side in one row: front view, left side view, back view, right side view.
-A-pose: arms held about 40 degrees away from the body, legs shoulder-width apart, fingers relaxed.
-Orthographic projection, exact same scale and height in every view, head/hip/feet aligned on the same horizontal lines.
-Flat even lighting, no cast shadows, no perspective, no ground, plain white background, no text or labels.
-Wide image, high resolution.
-```
-（続けて）
-```
-Same character, same style: front three-quarter view, A-pose, full body, plain white background, no text.
+Standing straight, legs shoulder-width apart (the arms are inside the poncho, so no arm pose is visible).
+Orthographic projection, exactly the same scale and height in every view, hat tip / brim / poncho hem / boot soles aligned on the same horizontal lines.
+Flat even lighting, no perspective, no ground plane, plain white background, no text or labels. Wide image, high resolution.
 ```
 
-### 顔と表情
+**B-2 正面斜め 45 度（添付: 01）**
 ```
-Same character: close-up of the head, front view and side view side by side.
-Show the worn pointed hat shape and the two round white eyes clearly. Flat lighting, plain white background, no text.
-```
-```
-Same character: four expression studies using only the eyes — neutral, blinking, surprised (eyes wider), looking up.
-Head only, front view, same size, in one row. Plain white background, no text.
+Make a full-body front three-quarter view (turned about 45 degrees) of this exact character, standing straight.
+Show the overlapping front panel of the poncho, the single chest button, and the patch on the hat.
+Flat lighting, plain white background, no text.
 ```
 
-### ディテール
+**B-3 ポンチョを外した姿のターンアラウンド（Mixamo に渡す姿。添付: 01 と 02）**
 ```
-Same character: detail sheet of the coat hem, collar, sleeve cuffs, patches and frayed edges, the bent tip of the hat, and the boots.
-Each detail drawn separately on a plain white background, flat shading, no text.
+Make a character turnaround sheet of this exact character WITHOUT the poncho and WITHOUT the hat, in A-pose
+(arms held about 40 degrees away from the body, legs shoulder-width apart, fingers relaxed).
+Under the poncho the character wears: a short-sleeved vest-like jacket with a V collar and three round buttons,
+a belt with a buckle, short trousers ending mid-thigh with turned-up cuffs, chunky four-fingered gloves with cuffs (light colored),
+the same big cuffed boots, and a soft bag hanging from the belt at the back of the waist.
+Arms and legs are the bare dark charcoal body. The egg-shaped head with the small feather-like tuft at the top back is uncovered.
+Four views in one row: front, left side, back, right side. Orthographic, same scale, aligned. Flat lighting, plain white background, no text.
 ```
 
-### パレット
+**B-4 素体のターンアラウンド（モデリングの基礎。添付: 03）**
 ```
-Color palette for the same character: 3 to 5 flat color swatches in a row with hex codes written under each swatch.
-Include the dark charcoal body color, the hat/coat color, the eye white, and one accent color.
+Make a character turnaround sheet of this exact character's bare body (no clothes, no hat), in A-pose.
+A slim dark charcoal figure: egg-shaped head with no neck flowing into a narrow torso, small feather-like tuft at the top back of the head,
+two tall oval white eyes, long thin arms with four-fingered hands, long thin legs, rounded feet with three toe bumps.
+Four views in one row: front, left side, back, right side. Orthographic, same scale, aligned. Flat lighting, plain white background, no text.
 ```
 
-### 避けたいもの（プロンプトの末尾に足すと安定する）
+**B-5 頭部のクローズアップ（添付: 01）**
 ```
-No dramatic lighting, no cast shadows, no motion blur, no flowing cloth, no overlapping limbs,
-no hands in pockets, no hidden feet, no cropped body parts, no glow effects, no background scenery,
-only one character, no text or labels.
+Make a close-up of this exact character's head with the hat on: front view and left side view side by side.
+Show the worn cone with its slightly leaning tip, the short curling brim, the round stitched patch, the stand-up poncho collar,
+and the two tall oval white eyes in the dark band between brim and collar. Flat lighting, plain white background, no text.
 ```
+
+**B-6 目の表情（添付: 01）**
+```
+Make four head-only studies of this exact character in one row, same size, front view, using ONLY the two oval eyes for expression:
+neutral, blinking (eyes closed as thin lines), surprised (eyes wider and rounder), looking up (eyes shifted up).
+Flat lighting, plain white background, no text.
+```
+
+**B-7 ディテール（添付: 01 と 02）**
+```
+Make a detail sheet of this exact character, each item drawn separately on a plain white background, flat shading, no text:
+the hat's round stitched patch and brim edge, the poncho's chest button and overlapping front seam, the wavy poncho hem,
+one boot with its folded cuff and rounded toe, one chunky four-fingered glove with cuff, the belt buckle, and the bag on the back of the belt.
+```
+
+**B-8 カラーパレット（添付: 01）**
+```
+Make a color palette for this exact character: 5 flat color swatches in a row with the hex code written under each.
+Body charcoal (very dark, slightly blue-tinted), hat and poncho faded sand beige, boots dark grey-brown, gloves off-white, one accent color for the button and patch.
+Plain white background.
+```
+
+**B-9 イメージ画（雰囲気用・任意。添付: 01）**
+```
+Make a wide illustration of this exact character walking alone through a rainy grey landscape toward a single distant warm light,
+seen from behind and slightly above, small in the frame. Flat low-poly style, muted 3-5 color palette (grey sky, dark wet ground, one warm light).
+No text.
+```
+
+### うまくいかないとき
+- 形が変わる → 「Follow the attached sketch exactly」を先頭に足し、変わった部分を名指しで直す（例 "the hat must be taller and thinner, like the sketch"）
+- 腕が出てくる → 「the arms are inside the poncho and must not be visible」を B の末尾にも足す
+- 4 面の大きさが揃わない → 「same height in all four views, aligned on guide lines」をもう一度書く。それでも駄目なら 1 面ずつ別セッションで作り、Claude 側で並べる
 
 ---
 
@@ -169,5 +233,5 @@ FBX → .glb の変換と Godot への取り込みは Claude 側で bpy スク�
 ## 6. 渡し方
 
 - 画像は PNG のまま、ファイル名に内容を入れる（例 `traveler_turnaround.png`、`rain_key_visual_01.png`、`prop_streetlamp_front_side.png`）
-- リポジトリの `docs/reference/character/` と `docs/reference/worlds/<world名>/` に置く（GitHub のブラウザ画面からアップロードできる: Add file → Upload files）
+- リポジトリの `docs/reference/character/`（手描きのスケッチは `docs/reference/character/sketches/`）と `docs/reference/worlds/<world名>/` に置く（GitHub のブラウザ画面からアップロードできる: そのフォルダを開いて Add file → Upload files。Claude とのチャットに直接添付してもよく、その場合は Claude がリポジトリに保存する）
 - 3D 化の作業は Claude がクラウド側で bpy スクリプトを書いて進める。結果は GitHub Pages の URL で確認する
