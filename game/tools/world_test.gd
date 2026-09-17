@@ -3,6 +3,7 @@ extends Node
 ##   godot --headless --path game res://tools/world_test.tscn
 ## 今の項目:
 ##   - 入口（雨の景色の灯り / ネオンのゲート）に近づくと光が強くなり、次のワールドへ移り始める
+##   - 雨の景色の小屋・柵・街灯が飛び石の道を塞がず、雨どいの水が雨と一緒に止まる
 ##   - ネオンの路地に入って奥の自販機まで歩けて、行き止まりの壁より外へは出られない
 ##   - ネオンの通行人の影が動き、湯気が出ていて、どちらも F1 の設定で消せる
 ##   - 低画質（スマホ）でも全ワールドが組み立てられる
@@ -29,6 +30,7 @@ var _ok := true
 func _ready() -> void:
 	for c in CASES:
 		await _run_case(c)
+	await _run_rain_extras()
 	await _run_neon_extras()
 	await _run_low_quality()
 	get_tree().quit(0 if _ok else 1)
@@ -182,3 +184,63 @@ func _run_low_quality() -> void:
 		world.queue_free()
 		await tree.process_frame
 	Tuning.graphics_quality = was
+
+
+# ---------------------------------------------------------------- 雨の景色の小物
+## 小屋・柵・街灯は「道沿いに置く」ので、飛び石の道を歩けなくしていないかを確かめる。
+## 雨どいの水は F1 で雨を止めたら一緒に止まること
+func _run_rain_extras() -> void:
+	var tree := get_tree()
+	var world: Node = (load("res://scenes/worlds/rain/rain_world.tscn") as PackedScene).instantiate()
+	tree.root.add_child.call_deferred(world)
+	for i in 3:
+		await tree.process_frame
+	var player: CharacterBody3D = world.get_node("Player")
+
+	# 飛び石の道をたどって灯りの近くまで行けるか。まっすぐではなく、
+	# 石が並んでいる曲線（rain_world の wobble と同じ式）を追いかける
+	var start := Vector2(0.0, -4.0)
+	var goal: Vector2 = world.lantern_position
+	var dir := (goal - start).normalized()
+	var side := Vector2(-dir.y, dir.x)
+	var total := start.distance_to(goal)
+	var path_at := func(d: float) -> Vector2:
+		return start + dir * d + side * (sin(d * 0.12) * 2.5)
+	player.global_position = Vector3(start.x, world.get_ground_height(start.x, start.y) + 1.0, start.y)
+	player.velocity = Vector3.ZERO
+	var rig: Node3D = player.get_node("CameraRig")
+	await tree.physics_frame
+	Input.action_press("move_forward")
+	Input.action_press("run")   # 136m あるので走る
+	var nearest := 9999.0
+	var travelled := 0.0
+	for i in 2400:
+		var here := Vector2(player.global_position.x, player.global_position.z)
+		travelled = clampf((here - start).dot(dir), 0.0, total)
+		var aim: Vector2 = path_at.call(minf(travelled + 6.0, total))
+		var to_aim := aim - here
+		# カメラの前方は -Z を yaw で回した向き = (-sin, -cos)。その逆算
+		rig._yaw = rad_to_deg(atan2(-to_aim.x, -to_aim.y))
+		rig._apply_rotation()
+		await tree.physics_frame
+		nearest = minf(nearest, here.distance_to(goal))
+		if nearest < 8.0:
+			break
+	Input.action_release("move_forward")
+	Input.action_release("run")
+	_check(nearest < 8.0, "小物が飛び石の道を塞いでいない（灯りまで残り %.1f m）" % nearest)
+
+	# 雨どいの水
+	var gutters: Array = world._gutters
+	_check(gutters.size() >= 1 and gutters.all(func(g: GPUParticles3D) -> bool: return g.emitting),
+		"雨どいから水が落ちている（%d か所）" % gutters.size())
+	var was: float = Tuning.rain_amount
+	Tuning.rain_amount = 0.0
+	for i in 3:
+		await tree.process_frame
+	_check(gutters.all(func(g: GPUParticles3D) -> bool: return not g.emitting),
+		"雨を止めると雨どいの水も止まる")
+	Tuning.rain_amount = was
+
+	world.queue_free()
+	await tree.process_frame
