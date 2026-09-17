@@ -61,6 +61,13 @@ var anim_walk_native_speed: float = 3.0   # Walking クリップの再生速度�
 var anim_run_native_speed: float = 6.2    # Running クリップの再生速度の基準 m/s（ユーザーの調整値 2026-09-16。計測値は 3.6）
 var arm_swing: int = 0                    # 0=歩き・走りで腕を振らない（待機の腕） / 1=クリップ通りに振る（OPTIONS 参照）
 
+# ---- マントの揺れ（SpringBoneSimulator3D）----
+var cloth_sway: int = 1              # 0=揺らさない / 1=揺らす（OPTIONS 参照）
+var cloth_stiffness: float = 0.7     # 元の形に戻ろうとする強さ（大きいほど硬い布）
+var cloth_drag: float = 0.35         # 空気の抵抗（大きいほどゆっくり止まる）
+var cloth_gravity: float = 0.3       # 裾を下に引く強さ m/s^2 相当
+var cloth_radius: float = 0.06       # 骨の当たりの太さ m（体にめり込みにくくする）
+
 # ---- 仮キャラの体型（倍率。1.0 が基準）----
 var body_scale: float = 1.0
 var leg_length: float = 1.0
@@ -130,6 +137,10 @@ const RANGES := {
 	"ambient_volume_db": [-40.0, 0.0, 1.0],
 	"anim_walk_native_speed": [0.5, 4.0, 0.05],
 	"anim_run_native_speed": [1.5, 8.0, 0.05],
+	"cloth_stiffness": [0.0, 3.0, 0.05],
+	"cloth_drag": [0.0, 1.0, 0.05],
+	"cloth_gravity": [0.0, 2.0, 0.05],
+	"cloth_radius": [0.01, 0.2, 0.01],
 	"body_scale": [0.7, 1.4, 0.01],
 	"leg_length": [0.7, 1.4, 0.01],
 	"arm_length": [0.7, 1.4, 0.01],
@@ -146,6 +157,7 @@ const RANGES := {
 const OPTIONS := {
 	"character_model": ["Mixamo のアニメ（本命）", "数式の仮キャラ（比較用）"],
 	"arm_swing": ["歩き・走りで腕を振らない（待機の腕）", "クリップ通りに振る"],
+	"cloth_sway": ["マントを揺らさない", "マントを揺らす"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 	"touch_controls": ["自動（タッチ端末で表示）", "常に表示", "隠す"],
 	"graphics_quality": ["自動（端末で決める）", "高", "低（軽くする）"],

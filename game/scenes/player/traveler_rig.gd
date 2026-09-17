@@ -6,13 +6,20 @@ extends Node3D
 ##   空中: Jump（空中区間をゆっくり再生して滞空全体に使う）→ 長く落ちるときだけ FallingIdle → Landing（低い落下は軽い膝の沈みだけ）
 ## player.gd から毎物理フレーム update_motion() を呼ぶ（数式の仮キャラ traveler.gd と同じ呼び方）。
 ##
+## マント: Skeleton3D に SpringBoneSimulator3D を足して裾を揺らす。
+## アニメが骨を動かしたあとに掛かるので、歩き出し・止まり・振り向き・ジャンプで遅れて付いてくる。
+## F1 の cloth_sway で入り切り、cloth_stiffness / drag / gravity / radius で硬さを変えられる。
+##
 ## Mixamo のクリップに対する補正（_ready で行う）:
 ##   - モデルは +Z が正面なので 180 度回して Godot の前（-Z）に向ける
 ##   - Jump / FallingIdle / Landing は腰の位置トラックに「跳び上がる高さ」が入っている。
 ##     高さは物理（CharacterBody3D）が動かすので、腰が立ち姿勢より上に浮く分は取り除き、
 ##     しゃがみ（下がる分）だけ残す。水平のずれも取り除く
 
-const MODEL := preload("res://assets/traveler_mixamo.glb")
+## マントを揺らすための骨の鎖（Cape0_0 …）を足した .glb。
+## 元は assets/traveler_mixamo.glb で、tools/blender/add_cloth_bones.py で作り直せる
+const MODEL := preload("res://assets/traveler_cloth.glb")
+const CLOTH_PREFIX := "Cape"   # 布の骨の名前の頭（add_cloth_bones.py の BONE_PREFIX と合わせる）
 const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "WalkingBackwards"]
 const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
 const FOOT_BONES := ["mixamorig_LeftFoot", "mixamorig_RightFoot"]
@@ -49,6 +56,9 @@ var _land_timer: float = 0.0
 var _idle_time: float = 0.0
 var _was_on_floor: bool = true
 var _climbing: bool = false
+var _spring: SkeletonModifier3D
+var _cloth_cfg := Vector4.ZERO   # 反映済みの [硬さ, 抵抗, 重力, 太さ]
+var _cloth_on: int = -1
 
 
 func _ready() -> void:
@@ -65,6 +75,7 @@ func _ready() -> void:
 		anim.loop_mode = Animation.LOOP_LINEAR if anim_name in LOOPING else Animation.LOOP_NONE
 	_fix_air_clips()
 	_build_tree()
+	_build_cloth()
 
 
 ## 空中クリップの腰の位置トラックから「立ち姿勢より上に浮く分」と水平のずれを取り除く
@@ -291,3 +302,59 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 			_state = "fall"
 			_tree.set("parameters/state/transition_request", "fall")
 	_was_on_floor = on_floor
+
+
+# ---------------------------------------------------------------- マントの揺れ
+## 布の骨の鎖（Cape<n>_0 → Cape<n>_1）を SpringBoneSimulator3D に登録する。
+## 骨が無い .glb（骨を足す前のもの）でも動くよう、見つからなければ何もしない
+func _build_cloth() -> void:
+	if _skel == null or not ClassDB.class_exists("SpringBoneSimulator3D"):
+		return
+	var chains: Array[Array] = []
+	var ci := 0
+	while true:
+		var joints: Array[String] = []
+		var j := 0
+		while _skel.find_bone("%s%d_%d" % [CLOTH_PREFIX, ci, j]) >= 0:
+			joints.append("%s%d_%d" % [CLOTH_PREFIX, ci, j])
+			j += 1
+		if joints.is_empty():
+			break
+		chains.append(joints)
+		ci += 1
+	if chains.is_empty():
+		return
+	_spring = ClassDB.instantiate("SpringBoneSimulator3D")
+	_spring.name = "ClothSpring"
+	_skel.add_child(_spring)
+	_spring.set("setting_count", chains.size())
+	for i in chains.size():
+		var joints: Array = chains[i]
+		_spring.call("set_root_bone_name", i, joints[0])
+		_spring.call("set_end_bone_name", i, joints[joints.size() - 1])
+		_spring.call("set_extend_end_bone", i, true)
+		_spring.call("set_end_bone_length", i, 0.06)
+	_apply_cloth(true)
+
+
+## F1 の値を反映する（変わったときだけ）
+func _apply_cloth(force: bool) -> void:
+	if _spring == null:
+		return
+	var on := int(Tuning.cloth_sway)
+	if force or on != _cloth_on:
+		_cloth_on = on
+		_spring.set("active", on == 1)
+	var cfg := Vector4(Tuning.cloth_stiffness, Tuning.cloth_drag, Tuning.cloth_gravity, Tuning.cloth_radius)
+	if not force and cfg.is_equal_approx(_cloth_cfg):
+		return
+	_cloth_cfg = cfg
+	for i in int(_spring.get("setting_count")):
+		_spring.call("set_stiffness", i, cfg.x)
+		_spring.call("set_drag", i, cfg.y)
+		_spring.call("set_gravity", i, cfg.z)
+		_spring.call("set_radius", i, cfg.w)
+
+
+func _process(_delta: float) -> void:
+	_apply_cloth(false)

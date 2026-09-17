@@ -99,8 +99,9 @@ uchi-games/
 - クラウド: headless での動作確認: `godot --headless --path game --import` → `godot --headless --path game --quit-after 5`
 - クラウド: 自動テスト: `godot --headless --path game res://tools/walk_test.tscn`（移動・段差・坂・世界の端・落下の保険）、`res://tools/world_test.tscn`（ワールドの入口）、`res://tools/touch_test.tscn`（スマホのタッチ操作）
 - クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump] [枚数] [間隔]`（xvfb + Mesa のソフトウェア描画。動作確認済み）。複数枚は `python3 tools/sheet.py build/shot build/sheet.png` で 1 枚に並べる（Pillow が必要: `pip install pillow`）
-- クラウド: スクリーンショットの開始位置と Tuning の上書き: `UCHI_POS="x,y,z" UCHI_TUNING="rain_amount=0.1" bash tools/screenshot.sh ...`、ワールド指定は `WORLD=res://scenes/worlds/gray/gray_world.tscn`
+- クラウド: スクリーンショットの開始位置・向き・Tuning の上書き: `UCHI_POS="x,y,z" UCHI_YAW=-90 UCHI_PITCH=-5 UCHI_TUNING="rain_amount=0.1" bash tools/screenshot.sh ...`（向きは動きの指定がある回だけ効く）、ワールド指定は `WORLD=res://scenes/worlds/gray/gray_world.tscn`
 - クラウド: アニメクリップ単体の確認: `bash tools/clip-view.sh build/clip Jump 0.0,0.2,0.4`（指定時刻のポーズを PNG に）
 - クラウド: Mixamo の FBX → .glb: `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb`、中身の確認: `godot --headless --path game --script res://tools/inspect_glb.gd -- res://assets/traveler_mixamo.glb`
+- クラウド: マントを揺らす骨の差し込み: `blender --background --python tools/blender/add_cloth_bones.py -- game/assets/traveler_mixamo.glb game/assets/traveler_cloth.glb`（ゲームが読むのは `traveler_cloth.glb` のほう）
 - Web書き出しのコマンド: `bash tools/export-web.sh` → `build/web/`（約39MB、スレッド無効ビルド）
 - ブラウザ確認用の URL（GitHub Pages）: https://axelrodichthys-blip.github.io/uchi-games/ （main への push で `.github/workflows/deploy-pages.yml` が自動配置。Pages の有効化が必要）

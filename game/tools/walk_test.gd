@@ -130,7 +130,9 @@ func _ready() -> void:
 	var respawn_ok := player.global_position.y > -10.0
 	print("[walk_test] 落下したら出現地点に戻る: %s（高さ %.2f）" % ["OK" if respawn_ok else "NG", player.global_position.y])
 
-	get_tree().quit(0 if (edge_ok and respawn_ok and ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok) else 1)
+	var cloth_ok := await _check_cloth(player)
+	
+	get_tree().quit(0 if (edge_ok and respawn_ok and ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok and cloth_ok) else 1)
 
 
 ## 端に向かって走り続け、外周より外に出ていないか・落ちていないかを見る
@@ -164,4 +166,51 @@ func _walk_and_check(player: CharacterBody3D, start: Vector3, action: String, fr
 	Input.action_release(action)
 	var passed := y >= min_y
 	print("[walk_test] %s: %s（最高 %.2f, 位置 %s）" % [label, "OK" if passed else "NG", y, str(player.global_position.snapped(Vector3(0.1, 0.1, 0.1)))])
+	return passed
+
+
+## マントの揺れ（SpringBoneSimulator3D）が効いているか。
+## 同じ動き（歩き出して止まる）を「揺らさない」「揺らす」で 2 回走らせ、
+## 裾の骨の位置が違っていれば効いている。切ったときは元の位置に戻ることも見る
+func _check_cloth(player: CharacterBody3D) -> bool:
+	var rig: Node = player.get_node("Body/TravelerRig")
+	var skel: Skeleton3D = rig._skel
+	if skel == null:
+		print("[walk_test] マントの揺れ: NG（Skeleton3D が見つかりません）")
+		return false
+	var bone := skel.find_bone("Cape0_1")
+	if bone < 0:
+		print("[walk_test] マントの揺れ: NG（裾の骨 Cape0_1 がありません。tools/blender/add_cloth_bones.py を流し直してください）")
+		return false
+	var was: int = Tuning.cloth_sway
+	var samples := {}
+	for mode in [0, 1]:
+		Tuning.cloth_sway = mode
+		player.global_position = Vector3(0.0, 1.0, 0.0)
+		player.velocity = Vector3.ZERO
+		for i in 30:   # 前の回の揺れを落ち着かせる
+			await get_tree().physics_frame
+		var track: Array[Vector3] = []
+		Input.action_press("move_forward")
+		Input.action_press("run")
+		for i in 60:
+			await get_tree().physics_frame
+			track.append(skel.get_bone_global_pose(bone).origin)
+		Input.action_release("move_forward")
+		Input.action_release("run")
+		for i in 30:
+			await get_tree().physics_frame
+			track.append(skel.get_bone_global_pose(bone).origin)
+		samples[mode] = track
+	Tuning.cloth_sway = was
+	var gap := 0.0
+	for i in mini(samples[0].size(), samples[1].size()):
+		gap = maxf(gap, samples[0][i].distance_to(samples[1][i]))
+	# 参考: 揺らさないときでも、走りのアニメ自体で裾はこれだけ動く
+	var by_anim := 0.0
+	for i in range(1, samples[0].size()):
+		by_anim = maxf(by_anim, samples[0][i].distance_to(samples[0][0]))
+	var passed := gap > 0.005
+	print("[walk_test] マントの揺れ: %s（揺れの分 %.1f mm / アニメだけの動き %.1f mm）" % [
+		"OK" if passed else "NG", gap * 1000.0, by_anim * 1000.0])
 	return passed
