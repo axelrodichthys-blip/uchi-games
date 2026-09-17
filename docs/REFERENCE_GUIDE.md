@@ -13,7 +13,7 @@ Mixamo での歩行アニメ付けに進める。
 
 | 項目 | スケッチから決まること | 3D 化での扱い |
 |---|---|---|
-| 身体の構造 | 素体は首の無い細身の人型。腕・脚は長くて細い。手は 4 本指、足はつま先 3 つの丸い塊 | Mixamo の自動リグは「頭・両手首・両肘・両膝・股」を指定する方式。**ポンチョを外した姿（02）で A ポーズのメッシュを渡す** |
+| 身体の構造 | 素体は首の無い細身の人型。腕・脚は長くて細い。**手は 5 本指**（親指 + 4 本）、足は丸い塊でつま先が分かれている | Mixamo の自動リグは「頭・両手首・両肘・両膝・股」を指定する方式。**ポンチョを外した姿（02）で A ポーズのメッシュを渡す** |
 | ポンチョ | 肩からすねの中ほどまでのテント型。左胸のボタン 1 つで留め、前は重ね合わせ。**腕は中に隠れて見えない** | リグの後に Blender で被せ、胴の骨 + 布の骨の鎖に重みを付ける（`tools/blender/add_cloth_bones.py`）。脚との干渉は SpringBone の当たりで押し出す |
 | 頭身 | 素体で約 5 頭身。脚が全高の約半分。完成形は帽子の先まで入れて縦長 | 身長は帽子の先まで **2.0 m 前後**（今のモデルと同じ縮尺。ワールドの小物との比率を保つ） |
 | 身体の色 | 真っ黒（目だけ白い楕円）。口・鼻なし | 画像生成では **濃い炭色 + 弱い陰影**で頼む（真っ黒だと形が読めない）。真っ黒は Godot の材質で再現 |
@@ -94,7 +94,8 @@ Style: flat shading, clean simple shapes, no texture detail, muted palette, plai
 ### 共通ブロック C: 避けたいもの（毎回末尾に貼る）
 ```
 No dramatic lighting, no cast shadows, no motion blur, no billowing cloth, no visible arms or hands outside the poncho (unless asked),
-no face other than the two oval eyes, no cropped body parts, no glow effects, no background scenery, only one character, no text or labels.
+no face other than the two oval eyes, no mitten hands and no four-fingered hands (hands always have five fingers: a thumb and four fingers),
+no cropped body parts, no glow effects, no background scenery, only one character, no text or labels.
 ```
 
 ### ブロック B: 作りたい画像ごとの指定（1 セッションに 1 つ）
@@ -120,7 +121,7 @@ Flat lighting, plain white background, no text.
 Make a character turnaround sheet of this exact character WITHOUT the poncho and WITHOUT the hat, in A-pose
 (arms held about 40 degrees away from the body, legs shoulder-width apart, fingers relaxed).
 Under the poncho the character wears: a short-sleeved vest-like jacket with a V collar and three round buttons,
-a belt with a buckle, short trousers ending mid-thigh with turned-up cuffs, chunky four-fingered gloves with cuffs (light colored),
+a belt with a buckle, short trousers ending mid-thigh with turned-up cuffs, chunky five-fingered gloves (thumb plus four fingers) with cuffs (light colored),
 the same big cuffed boots, and a soft bag hanging from the belt at the back of the waist.
 Arms and legs are the bare dark charcoal body. The egg-shaped head with the small feather-like tuft at the top back is uncovered.
 Four views in one row: front, left side, back, right side. Orthographic, same scale, aligned. Flat lighting, plain white background, no text.
@@ -130,7 +131,7 @@ Four views in one row: front, left side, back, right side. Orthographic, same sc
 ```
 Make a character turnaround sheet of this exact character's bare body (no clothes, no hat), in A-pose.
 A slim dark charcoal figure: egg-shaped head with no neck flowing into a narrow torso, small feather-like tuft at the top back of the head,
-two tall oval white eyes, long thin arms with four-fingered hands, long thin legs, rounded feet with three toe bumps.
+two tall oval white eyes, long thin arms with five-fingered hands (thumb plus four slender fingers), long thin legs, rounded feet with separated toes.
 Four views in one row: front, left side, back, right side. Orthographic, same scale, aligned. Flat lighting, plain white background, no text.
 ```
 
@@ -152,7 +153,7 @@ Flat lighting, plain white background, no text.
 ```
 Make a detail sheet of this exact character, each item drawn separately on a plain white background, flat shading, no text:
 the hat's round stitched patch and brim edge, the poncho's chest button and overlapping front seam, the wavy poncho hem,
-one boot with its folded cuff and rounded toe, one chunky four-fingered glove with cuff, the belt buckle, and the bag on the back of the belt.
+one boot with its folded cuff and rounded toe, one chunky five-fingered glove with cuff, the belt buckle, and the bag on the back of the belt.
 ```
 
 **B-8 カラーパレット（添付: 01）**
@@ -172,6 +173,7 @@ No text.
 ### うまくいかないとき
 - 形が変わる → 「Follow the attached sketch exactly」を先頭に足し、変わった部分を名指しで直す（例 "the hat must be taller and thinner, like the sketch"）
 - 腕が出てくる → 「the arms are inside the poncho and must not be visible」を B の末尾にも足す
+- 指が 4 本やミトンになる → 「five fingers: a thumb and four separate fingers on each hand」を B の末尾にも足す（手が写る B-3 / B-4 / B-7 で起きやすい）
 - 4 面の大きさが揃わない → 「same height in all four views, aligned on guide lines」をもう一度書く。それでも駄目なら 1 面ずつ別セッションで作り、Claude 側で並べる
 
 ---
