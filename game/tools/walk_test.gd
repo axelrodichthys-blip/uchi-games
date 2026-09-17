@@ -103,15 +103,16 @@ func _ready() -> void:
 	var down_ok := down_y < 1.0
 	print("[walk_test] 50度の下り坂を降りる: %s" % ("OK" if down_ok else "NG"))
 
-	# 段差: 階段（0.25m × 4）を歩いて登る
-	var step_ok := await _walk_and_check(player, Vector3(6.0, 0.5, 7.5), "move_back", 240, 0.95, "階段（0.25m 段）を歩いて登る")
-	# 段差: 0.45m の段（膝）を歩いて登る
-	var knee_ok := await _walk_and_check(player, Vector3(12.0, 0.5, 8.0), "move_back", 180, 0.4, "0.45m の段を足で登る")
-	# 段差: 1.5m の段（肩）をよじ登る
-	var climb_ok := await _walk_and_check(player, Vector3(22.0, 0.5, 8.0), "move_back", 240, 1.4, "1.5m の段をよじ登る")
-	# 段差: 2.2m の段は登れない
+	# 段差: 階段（0.2m × 4）を歩いて登る
+	var step_ok := await _walk_and_check(player, Vector3(6.0, 0.5, 7.5), "move_back", 240, 0.75, "階段（0.2m 段）を歩いて登る")
+	# 段差: 0.35m の段（膝）を歩いて登る
+	var knee_ok := await _walk_and_check(player, Vector3(12.0, 0.5, 8.0), "move_back", 180, 0.3, "0.35m の段を足で登る")
+	# 段差: 1.2m の段（肩）をよじ登る
+	var climb_ok := await _walk_and_check(player, Vector3(22.0, 0.5, 8.0), "move_back", 240, 1.1, "1.2m の段をよじ登る")
+	# 段差: 1.7m の段は登れない
 	player.global_position = Vector3(27.0, 0.5, 8.0)
 	player.velocity = Vector3.ZERO
+	await _settle(player)
 	Input.action_press("move_back")
 	var wall_y := 0.0
 	for i in 180:
@@ -119,7 +120,7 @@ func _ready() -> void:
 		wall_y = maxf(wall_y, player.global_position.y)
 	Input.action_release("move_back")
 	var wall_ok := wall_y < 0.3
-	print("[walk_test] 2.2m の段は登れない: %s（最高 %.2f）" % ["OK" if wall_ok else "NG", wall_y])
+	print("[walk_test] 1.7m の段は登れない: %s（最高 %.2f）" % ["OK" if wall_ok else "NG", wall_y])
 	# 世界の端: 外へ歩き続けても外周より外に出ない（盛り上がり + 見えない壁）
 	var edge_ok := await _check_edge(world, player)
 	# 落下の保険: 世界の下に落ちたら出現地点に戻る
@@ -155,9 +156,19 @@ func _check_edge(world: Node, player: CharacterBody3D) -> bool:
 	return inside
 
 
+## 出現させた直後は空中に浮いているので、着地するまで待つ。
+## これをしないと「出現時の高さ」を登った高さと数えてしまう
+func _settle(player: CharacterBody3D) -> void:
+	for i in 40:
+		await get_tree().physics_frame
+		if player.is_on_floor():
+			break
+
+
 func _walk_and_check(player: CharacterBody3D, start: Vector3, action: String, frames: int, min_y: float, label: String) -> bool:
 	player.global_position = start
 	player.velocity = Vector3.ZERO
+	await _settle(player)
 	Input.action_press(action)
 	var y := 0.0
 	for i in frames:

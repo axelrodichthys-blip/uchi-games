@@ -1,5 +1,7 @@
 extends Node
 ## 操作感に関わる数値はすべてここにまとめる（散らばらせない）。
+## キャラの身長は **帽子の先まで 1.6m**（2026-09-17 決定）。
+## 高さ・距離の数値はこの身長を前提にしている（身長を変えるときは比例して直す）。
 ## F1 のデバッグパネルから、その場で変更して試せる。
 ## 良い数値が見つかったら、この初期値を書き換える。
 
@@ -10,35 +12,35 @@ var acceleration: float = 10.0     # 加速の速さ（大きいほどキビキ�
 var deceleration: float = 14.0     # 止まる速さ
 var turn_speed: float = 10.0       # キャラが進行方向を向く速さ
 var gravity: float = 9.8
-var jump_velocity: float = 5.9     # ジャンプの初速 m/s（5.9 で約 1.8m の高さ）
+var jump_velocity: float = 5.2     # ジャンプの初速 m/s（5.2 で約 1.4m の高さ = 身長の 0.9 倍）
 var jump_buffer_time: float = 0.18 # ジャンプの先行入力を覚えている時間 秒（短いタップや着地直前の入力を拾う）
 var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱いで登れず滑る（度）
 var air_control: float = 0.3       # 空中での操作の効き（0 で効かない、1 で地上と同じ）
-var floor_snap: float = 0.5        # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
-var step_height: float = 0.5       # この高さまでの段差は歩いたまま足で登る m（膝くらい）
-var climb_height: float = 1.7      # この高さまでの段差は前に進み続けると腕で登る m（肩〜首くらい）
+var floor_snap: float = 0.39       # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
+var step_height: float = 0.39      # この高さまでの段差は歩いたまま足で登る m（膝くらい）
+var climb_height: float = 1.3      # この高さまでの段差は前に進み続けると腕で登る m（肩〜首くらい）
 var climb_time: float = 0.7        # 登る動作にかかる秒数
 
 # ---- カメラ（三人称）----
-var camera_distance: float = 4.0   # キャラからカメラまでの距離 m
-var camera_distance_min: float = 1.5
-var camera_distance_max: float = 10.0
-var camera_zoom_step: float = 0.5  # ホイール1目盛りで変わる距離
-var camera_height: float = 1.4     # 注視点の高さ（キャラの足元から）
+var camera_distance: float = 3.1   # キャラからカメラまでの距離 m
+var camera_distance_min: float = 1.15
+var camera_distance_max: float = 7.7
+var camera_zoom_step: float = 0.4  # ホイール1目盛りで変わる距離
+var camera_height: float = 1.08    # 注視点の高さ（キャラの足元から）
 var camera_follow_speed: float = 10.0  # 距離変化・視点切替の滑らかさ
 var camera_pitch_default: float = -15.0  # 起動時の見下ろし角度（度）
 var pitch_min: float = -70.0       # 見下ろせる限界（度）
 var pitch_max: float = 60.0        # 見上げられる限界（度）
 var fov: float = 70.0              # 視野角（三人称）
 var fov_first_person: float = 80.0 # 視野角（一人称）
-var first_person_eye_height: float = 1.55
+var first_person_eye_height: float = 1.2
 var camera_collision_mode: int = 0  # 0=すり抜けて小物を透過 / 1=引き寄せ（OPTIONS 参照）
 var camera_pull_in_speed: float = 20.0   # 物にぶつかって寄るときの速さ
 var camera_pull_out_speed: float = 4.0   # 元の距離に戻るときの速さ（ゆっくり）
 var occluder_fade: float = 0.75          # 間にある小物の透け具合（0 で透過しない、1 で消える）
 
 # ---- 歩く気持ちよさ ----
-var camera_bob: float = 0.02          # 歩行時のカメラの上下の揺れ m（0 で無し。走ると 1.6 倍まで増える）
+var camera_bob: float = 0.015         # 歩行時のカメラの上下の揺れ m（0 で無し。走ると 1.6 倍まで増える）
 var run_fov_boost: float = 6.0        # 走っているとき視野角を広げる量（度。速さの実感用）
 var footstep_volume_db: float = -8.0  # 足音の音量 dB
 var ambient_volume_db: float = -14.0  # 環境音（雨音など）の音量 dB
@@ -57,8 +59,8 @@ var invert_y: bool = false
 
 # ---- キャラのモデル ----
 var character_model: int = 0          # 0=Mixamo アニメ / 1=数式の仮キャラ（OPTIONS 参照）
-var anim_walk_native_speed: float = 3.0   # Walking クリップの再生速度の基準 m/s（ユーザーの調整値 2026-09-16。計測値は 1.35）
-var anim_run_native_speed: float = 6.2    # Running クリップの再生速度の基準 m/s（ユーザーの調整値 2026-09-16。計測値は 3.6）
+var anim_walk_native_speed: float = 2.3   # Walking クリップの再生速度の基準 m/s（ユーザー調整値 3.0 を身長 1.6m に合わせて 0.773 倍）
+var anim_run_native_speed: float = 4.8    # Running クリップの再生速度の基準 m/s（同 6.2 を 0.773 倍）
 var arm_swing: int = 0                    # 0=歩き・走りで腕を振らない（待機の腕） / 1=クリップ通りに振る（OPTIONS 参照）
 
 # ---- マントの揺れ（SpringBoneSimulator3D）----
@@ -105,11 +107,11 @@ const RANGES := {
 	"jump_buffer_time": [0.0, 0.5, 0.01],
 	"slope_max_angle": [20.0, 80.0, 1.0],
 	"air_control": [0.0, 1.0, 0.05],
-	"step_height": [0.1, 1.0, 0.05],
-	"climb_height": [0.5, 2.5, 0.05],
+	"step_height": [0.1, 0.8, 0.05],
+	"climb_height": [0.4, 2.0, 0.05],
 	"climb_time": [0.2, 2.0, 0.05],
-	"camera_distance": [1.5, 10.0, 0.1],
-	"camera_height": [0.5, 3.0, 0.05],
+	"camera_distance": [1.0, 8.0, 0.1],
+	"camera_height": [0.4, 2.2, 0.05],
 	"camera_follow_speed": [1.0, 30.0, 0.5],
 	"pitch_min": [-89.0, 0.0, 1.0],
 	"pitch_max": [0.0, 89.0, 1.0],

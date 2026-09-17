@@ -23,7 +23,7 @@ shader = ExtResource("5_shader")
 
 [node name="GrayWorld" type="Node3D"]
 script = ExtResource("1_world")
-hud_hint = "検証: 左前に台地（坂と崖）、右前に 60° の山、右後ろに階段と段差（0.45 / 1.0 / 1.5 / 2.2m）"
+hud_hint = "検証: 左前に台地（坂と崖）、右前に 60° の山、右後ろに階段と段差（0.35 / 0.8 / 1.2 / 1.7m）"
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_1")

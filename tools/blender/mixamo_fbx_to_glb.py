@@ -1,7 +1,7 @@
 # Mixamo からダウンロードした FBX（複数）を 1 つの .glb にまとめる。
 #
 # 使い方（ヘッドレス）:
-#   blender --background --python tools/blender/mixamo_fbx_to_glb.py -- <FBXのフォルダ> <出力.glb>
+#   blender --background --python tools/blender/mixamo_fbx_to_glb.py -- <FBXのフォルダ> <出力.glb> [身長m]
 #   例: blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb
 #
 # 前提:
@@ -74,10 +74,13 @@ for action in actions:
     track.name = action.name
     track.strips.new(action.name, int(action.frame_range[0]), action)
 
-# 大きさを元の OBJ（メートルで作ってある。帽子の先まで含む）に揃える。
-# Mixamo は単位を cm と解釈するので、そのままだと 100 倍ずれる。
+# 大きさを設定書どおりに揃える。Mixamo は単位を cm と解釈するので、そのままだと 100 倍ずれる。
+# 身長は **帽子の先まで 1.6 m**（2026-09-17 決定。GAME_DESIGN.md「キャラクター」）。
+# 参照 OBJ はここでは材質の復元にだけ使い、高さの基準にはしない（OBJ は 2.07m で作ってあるため）。
 REF_OBJ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "docs", "reference", "character", "traveler_apose.obj")
-TARGET_HEIGHT = 2.07  # 参照 OBJ が無いときの既定値（帽子の先まで）
+TARGET_HEIGHT = 1.6  # 帽子の先まで m。第 3 引数で上書きできる
+if len(argv) >= 3:
+    TARGET_HEIGHT = float(argv[2])
 def obj_height(path):
     zmin, zmax = None, None
     with open(path) as f:
@@ -87,9 +90,7 @@ def obj_height(path):
                 zmin = z if zmin is None else min(zmin, z)
                 zmax = z if zmax is None else max(zmax, z)
     return (zmax - zmin) if zmin is not None else 0.0
-if os.path.exists(REF_OBJ):
-    TARGET_HEIGHT = obj_height(REF_OBJ)
-    print("[mixamo] 参照 OBJ の高さ（帽子込み）: %.3f m" % TARGET_HEIGHT)
+print("[mixamo] 目標の身長（帽子の先まで）: %.3f m" % TARGET_HEIGHT)
 
 def world_height(objs):
     zs = []

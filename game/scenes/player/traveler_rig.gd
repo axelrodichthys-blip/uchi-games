@@ -24,8 +24,10 @@ const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "Wa
 const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
 const FOOT_BONES := ["mixamorig_LeftFoot", "mixamorig_RightFoot"]
 const ARM_BONE_KEYS := ["Shoulder", "Arm", "ForeArm", "Hand"]   # 腕の骨（トラックのパスにこの語を含む）
-const FOOT_DOWN := 0.225       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
-const FOOT_UP := 0.255         # この高さを超えたら「持ち上がった」（ヒステリシス）
+const FOOT_DOWN := 0.168       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
+const FOOT_UP := 0.186         # この高さを超えたら「持ち上がった」（ヒステリシス）
+# ↑ 身長 1.6m の歩きでの足首の実測は 0.153〜0.207m。上下とも余裕を取って内側に置く
+# （身長を変えたら実測し直す。walk_test の「足音の回数」で気づける）
 
 ## 足が地面に着いた。side: 0 = 左 / 1 = 右、strength: 0〜1（速いほど・落下が強いほど大）
 signal footstep(side: int, strength: float)

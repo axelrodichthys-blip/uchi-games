@@ -43,16 +43,17 @@ func _decorate() -> void:
 	_spawn_landmarks()
 
 
-## 階段（1 段 0.25m × 4）と、高さ違いの段（0.45 / 1.0 / 1.5 / 2.2m）。+Z 方向（開始地点の後ろ）へ並べる
+## 階段（1 段 0.2m × 4）と、高さ違いの段（0.35 / 0.8 / 1.2 / 1.7m）。+Z 方向（開始地点の後ろ）へ並べる。
+## 高さは身長 1.6m の膝（step_height 0.39）・肩（climb_height 1.3）を挟むように選んである
 func _build_steps() -> void:
 	var mat: Material = terrain_mesh.material_override
 	var ox := steps_origin.x
 	var oz := steps_origin.y
 	for i in 4:
-		var h := 0.25 * (i + 1)
+		var h := 0.2 * (i + 1)
 		add_static_box(test_area, Vector3(ox, h * 0.5, oz + i * 1.0), Vector3(4.0, h, 1.0), Vector3.ZERO, mat, 1)
-	add_static_box(test_area, Vector3(ox, 0.5, oz + 4.5), Vector3(4.0, 1.0, 2.0), Vector3.ZERO, mat, 1)   # 階段の踊り場
-	var heights := [0.45, 1.0, 1.5, 2.2]
+	add_static_box(test_area, Vector3(ox, 0.4, oz + 4.5), Vector3(4.0, 0.8, 2.0), Vector3.ZERO, mat, 1)   # 階段の踊り場
+	var heights := [0.35, 0.8, 1.2, 1.7]
 	for i in heights.size():
 		var h: float = heights[i]
 		add_static_box(test_area, Vector3(ox + 6.0 + i * 5.0, h * 0.5, oz + 2.0), Vector3(3.0, h, 3.0), Vector3.ZERO, mat, 1)
