@@ -1,7 +1,11 @@
 extends Node
 ## ワールド固有の仕掛けを headless で確認する。
 ##   godot --headless --path game res://tools/world_test.tscn
-## 今の項目: 入口（雨の景色の灯り / ネオンのゲート）に近づくと光が強くなり、次のワールドへ移り始める
+## 今の項目:
+##   - 入口（雨の景色の灯り / ネオンのゲート）に近づくと光が強くなり、次のワールドへ移り始める
+##   - ネオンの路地に入って奥の自販機まで歩けて、行き止まりの壁より外へは出られない
+##   - ネオンの通行人の影が動き、湯気が出ていて、どちらも F1 の設定で消せる
+##   - 低画質（スマホ）でも全ワールドが組み立てられる
 
 const CASES := [
 	{
@@ -25,6 +29,8 @@ var _ok := true
 func _ready() -> void:
 	for c in CASES:
 		await _run_case(c)
+	await _run_neon_extras()
+	await _run_low_quality()
 	get_tree().quit(0 if _ok else 1)
 
 
@@ -81,3 +87,98 @@ func _check(passed: bool, label: String) -> void:
 
 func _fail(label: String) -> void:
 	_check(false, label)
+
+
+# ---------------------------------------------------------------- ネオンの街の中身
+## 路地・通行人・湯気を確認する。どれも「歩いていて気づくもの」なので、
+## 見た目はスクリーンショットで、動きと当たり判定はここで確かめる
+func _run_neon_extras() -> void:
+	var tree := get_tree()
+	var world: Node = (load("res://scenes/worlds/neon/neon_world.tscn") as PackedScene).instantiate()
+	tree.root.add_child.call_deferred(world)
+	for i in 3:
+		await tree.process_frame
+	var player: CharacterBody3D = world.get_node("Player")
+	var consts: Dictionary = world.get_script().get_script_constant_map()
+	var street_half: float = consts["STREET_HALF"]
+	var alley_length: float = consts["ALLEY_LENGTH"]
+	var alley: Dictionary = consts["ALLEYS"][2]
+	var side: float = alley["side"]
+	var az: float = alley["z"]
+
+	# 路地の入口に立ち、路地の奥（x が増える向き）へ歩く
+	var rig: Node3D = player.get_node("CameraRig")
+	rig._yaw = -90.0 * side
+	rig._apply_rotation()
+	var start_x: float = side * (street_half - 1.0)
+	player.global_position = Vector3(start_x, world.get_ground_height(start_x, az) + 1.0, az)
+	player.velocity = Vector3.ZERO
+	await tree.physics_frame
+	Input.action_press("move_forward")
+	for i in 900:
+		await tree.physics_frame
+	Input.action_release("move_forward")
+	var reached: float = player.global_position.x * side
+	var drift: float = absf(player.global_position.z - az)
+	_check(reached > street_half + alley_length - 7.0 and drift < 4.0,
+		"路地の奥まで歩いて行ける（奥行き %.1f m, 横ずれ %.1f m）" % [reached, drift])
+	_check(reached < street_half + alley_length + 5.0,
+		"路地の行き止まりで止まる（奥行き %.1f m）" % reached)
+
+	# 通行人の影が歩いているか
+	var walkers: Array = world._walkers
+	var before: Array[Vector3] = []
+	for w in walkers:
+		before.append((w["node"] as Node3D).global_position)
+	for i in 60:
+		await tree.process_frame
+	var moved := 0
+	for i in walkers.size():
+		var node: Node3D = walkers[i]["node"]
+		if node.visible and node.global_position.distance_to(before[i]) > 0.1:
+			moved += 1
+	_check(moved >= 3, "通行人の影が歩いている（%d 人が動いた / 全 %d 人）" % [moved, walkers.size()])
+
+	# 湯気が出ているか
+	var steam: Array = world._steam
+	var emitting := steam.filter(func(p: GPUParticles3D) -> bool: return p.emitting)
+	_check(emitting.size() == steam.size() and steam.size() >= 3,
+		"湯気が出ている（%d / %d か所）" % [emitting.size(), steam.size()])
+
+	# F1 で湯気と通行人を消せるか
+	var steam_was: float = Tuning.steam_amount
+	var crowd_was: float = Tuning.crowd_amount
+	Tuning.steam_amount = 0.0
+	Tuning.crowd_amount = 0.0
+	for i in 3:
+		await tree.process_frame
+	var still_on := steam.filter(func(p: GPUParticles3D) -> bool: return p.emitting)
+	var still_shown := walkers.filter(func(w: Dictionary) -> bool: return (w["node"] as Node3D).visible)
+	_check(still_on.is_empty() and still_shown.is_empty(),
+		"F1 で湯気と通行人を消せる（湯気 %d か所 / 通行人 %d 人 が残った）" % [still_on.size(), still_shown.size()])
+	Tuning.steam_amount = steam_was
+	Tuning.crowd_amount = crowd_was
+
+	world.queue_free()
+	await tree.process_frame
+
+
+## 低画質（スマホの自動設定と同じ）で全ワールドを組み立てられるか。
+## 軽量化の分岐は光源や粒の数を減らすので、そこで壊れていないかを見る
+func _run_low_quality() -> void:
+	var tree := get_tree()
+	var was: int = Tuning.graphics_quality
+	Tuning.graphics_quality = 2   # 低
+	for path in ["res://scenes/worlds/rain/rain_world.tscn",
+			"res://scenes/worlds/neon/neon_world.tscn",
+			"res://scenes/worlds/gray/gray_world.tscn"]:
+		var world: Node = (load(path) as PackedScene).instantiate()
+		tree.root.add_child.call_deferred(world)
+		for i in 5:
+			await tree.process_frame
+		var player: Node3D = world.get_node("Player")
+		_check(is_instance_valid(player) and player.global_position.y > -20.0,
+			"低画質で %s を組み立てられる" % path.get_file())
+		world.queue_free()
+		await tree.process_frame
+	Tuning.graphics_quality = was

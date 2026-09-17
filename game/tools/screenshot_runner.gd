@@ -38,11 +38,16 @@ func _ready() -> void:
 	# 動きの確認用: 指定があれば入力を入れ続ける（カメラは横から見る）
 	if action != "":
 		var rig: Node3D = player_node.get_node("CameraRig")
+		# 環境変数で向きも上書きできる（例: UCHI_YAW=-90 UCHI_PITCH=-5。路地の中を覗くときなどに使う）
 		rig._pitch = -3.0
 		rig._target_distance = 3.0
 		if action == "idle":   # 足元の地面を見下ろす（水たまりや影の確認用）
 			rig._pitch = -38.0
 			rig._target_distance = 2.6
+		if OS.has_environment("UCHI_YAW"):
+			rig._yaw = float(OS.get_environment("UCHI_YAW"))
+		if OS.has_environment("UCHI_PITCH"):
+			rig._pitch = float(OS.get_environment("UCHI_PITCH"))
 		rig._apply_rotation()
 		if action == "walk":
 			Input.action_press("move_right")

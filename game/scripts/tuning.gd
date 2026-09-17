@@ -84,6 +84,8 @@ var fog_density: float = 0.012     # フォグの濃さ（大きいほど近く�
 var rain_amount: float = 0.6       # 雨の量 0〜1（雨の景色）
 var puddle_amount: float = 0.42    # 水たまりの量 0〜0.9（雨の景色）
 var puddle_size: float = 14.0      # 水たまりの大きさの目安 m（雨の景色）
+var steam_amount: float = 0.6      # 湯気の量 0〜1（ネオン。マンホールと路地の排気口）
+var crowd_amount: float = 0.6      # 通行人の影の多さ 0〜1（ネオン）
 
 # デバッグパネル用: 変数名 -> [最小, 最大, 刻み]
 const RANGES := {
@@ -120,6 +122,8 @@ const RANGES := {
 	"rain_amount": [0.0, 1.0, 0.05],
 	"puddle_amount": [0.0, 0.9, 0.02],
 	"puddle_size": [3.0, 60.0, 1.0],
+	"steam_amount": [0.0, 1.0, 0.05],
+	"crowd_amount": [0.0, 1.0, 0.05],
 	"camera_bob": [0.0, 0.1, 0.005],
 	"run_fov_boost": [0.0, 20.0, 0.5],
 	"footstep_volume_db": [-40.0, 6.0, 1.0],
