@@ -20,6 +20,8 @@ var _climb_duration: float = 0.5
 var _climb_anim: bool = false   # 登りアニメを使う（高い段）か、歩いたまま（低い段）か
 var _push_time: float = 0.0   # 壁を押し続けている時間
 var _jump_buffer: float = 0.0 # ジャンプの先行入力（短いタップや着地直前の入力を拾う）
+var _flying: bool = false     # 飛行中（F キー / パッド Y で入り切り）
+var _fly_lean: float = 0.0    # 今の身体の傾き 度（急に変わらないようにならしている）
 
 
 func _ready() -> void:
@@ -38,6 +40,15 @@ func _physics_process(delta: float) -> void:
 	floor_snap_length = Tuning.floor_snap
 	if _climbing:
 		_update_climb(delta)
+		return
+
+	# 飛行の入り切り
+	if Input.is_action_just_pressed("fly") and int(Tuning.fly_mode) == 1:
+		_set_flying(not _flying)
+	if _flying and int(Tuning.fly_mode) != 1:
+		_set_flying(false)
+	if _flying:
+		_fly(delta)
 		return
 
 	# 重力・ジャンプ。押した瞬間を少しの間覚えておく（タップが短くても、着地の直前でも跳べる）
@@ -101,6 +112,74 @@ func _physics_process(delta: float) -> void:
 	if horizontal_speed > 0.1:
 		forward_dot = forward.dot(Vector3(velocity.x, 0, velocity.z) / horizontal_speed)
 	_active_model().update_motion(horizontal_speed, is_on_floor(), velocity.y, yaw_rate, forward_dot, delta)
+
+
+## 飛行の入り切り。地上から入るときは少し浮き上がる
+func _set_flying(on: bool) -> void:
+	if _flying == on:
+		return
+	_flying = on
+	if on and velocity.y < Tuning.fly_takeoff:
+		velocity.y = Tuning.fly_takeoff
+	if not on:
+		_fly_lean = 0.0
+		body.rotation.x = 0.0
+	var model := _active_model()
+	if model.has_method("set_flying"):
+		model.set_flying(on)
+
+
+## 飛行中の動き。重力は効かず、空中を自由に進む
+func _fly(delta: float) -> void:
+	var input := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var dir := Vector3.ZERO
+	if input.length_squared() > 0.0:
+		dir = Vector3(input.x, 0.0, input.y).rotated(Vector3.UP, camera_rig.get_yaw()).limit_length(1.0)
+	var rise := 0.0
+	if Input.is_action_pressed("jump"):
+		rise += 1.0
+	if Input.is_action_pressed("descend"):
+		rise -= 1.0
+
+	var speed: float = Tuning.fly_boost_speed if Input.is_action_pressed("run") else Tuning.fly_speed
+	var want := dir * speed
+	want.y = rise * Tuning.fly_rise_speed
+	# 入力があるところは加速、無いところはゆっくり止まる（ふわっと滑る感じ）
+	var accel: float = Tuning.fly_accel
+	var damp: float = Tuning.fly_damp
+	var flat := Vector3(velocity.x, 0.0, velocity.z)
+	var want_flat := Vector3(want.x, 0.0, want.z)
+	flat = flat.move_toward(want_flat, (accel if dir.length_squared() > 0.0 else damp) * delta)
+	velocity.x = flat.x
+	velocity.z = flat.z
+	velocity.y = move_toward(velocity.y, want.y, (accel if absf(rise) > 0.01 else damp) * delta)
+
+	# 高く上がりすぎないように（世界の外へ出ないための保険）
+	if global_position.y > Tuning.fly_max_height and velocity.y > 0.0:
+		velocity.y = 0.0
+
+	# 身体の向きと、進む向きへの傾き
+	if camera_rig.first_person:
+		body.rotation.y = camera_rig.get_yaw()
+	elif dir.length_squared() > 0.0:
+		var yaw := atan2(-dir.x, -dir.z)
+		body.rotation.y = lerp_angle(body.rotation.y, yaw, clampf(Tuning.turn_speed * delta, 0.0, 1.0))
+	var flat_speed := Vector2(velocity.x, velocity.z).length()
+	var want_lean: float = Tuning.fly_lean * clampf(flat_speed / maxf(Tuning.fly_speed, 0.1), 0.0, 1.0)
+	if camera_rig.first_person:
+		want_lean = 0.0
+	_fly_lean = lerpf(_fly_lean, want_lean, clampf(4.0 * delta, 0.0, 1.0))
+	body.rotation.x = -deg_to_rad(_fly_lean)
+
+	body.visible = not camera_rig.first_person
+	move_and_slide()
+	# 地面に触れて、上昇していなければ着地して飛行をやめる
+	if is_on_floor() and rise <= 0.0:
+		_set_flying(false)
+		return
+	var yaw_rate := angle_difference(_prev_body_yaw, body.rotation.y) / delta
+	_prev_body_yaw = body.rotation.y
+	_active_model().update_motion(flat_speed, false, velocity.y, yaw_rate, 1.0, delta)
 
 
 func _active_model() -> Node3D:

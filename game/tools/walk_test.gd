@@ -132,8 +132,9 @@ func _ready() -> void:
 	print("[walk_test] 落下したら出現地点に戻る: %s（高さ %.2f）" % ["OK" if respawn_ok else "NG", player.global_position.y])
 
 	var cloth_ok := await _check_cloth(player)
-	
-	get_tree().quit(0 if (edge_ok and respawn_ok and ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok and cloth_ok) else 1)
+	var fly_ok := await _check_fly(player)
+
+	get_tree().quit(0 if (edge_ok and respawn_ok and ok and jump_ok and slide_ok and ramp_ok and cliff_ok and down_ok and steps_ok and step_ok and knee_ok and climb_ok and wall_ok and cloth_ok and fly_ok) else 1)
 
 
 ## 端に向かって走り続け、外周より外に出ていないか・落ちていないかを見る
@@ -225,3 +226,50 @@ func _check_cloth(player: CharacterBody3D) -> bool:
 	print("[walk_test] マントの揺れ: %s（揺れの分 %.1f mm / アニメだけの動き %.1f mm）" % [
 		"OK" if passed else "NG", gap * 1000.0, by_anim * 1000.0])
 	return passed
+
+
+## 飛行: F で飛び立って上がり、前に進み、下降して着地できるか
+func _check_fly(player: CharacterBody3D) -> bool:
+	player.global_position = Vector3(0.0, 2.0, 0.0)
+	player.velocity = Vector3.ZERO
+	for i in 60:
+		await get_tree().physics_frame
+	var ground_y := player.global_position.y
+
+	# F で飛行に入り、上昇
+	Input.action_press("fly")
+	await get_tree().physics_frame
+	Input.action_release("fly")
+	Input.action_press("jump")
+	for i in 90:
+		await get_tree().physics_frame
+	Input.action_release("jump")
+	var climbed := player.global_position.y - ground_y
+	var rise_ok := climbed > 3.0
+
+	# 空中で前に進めるか（重力で落ちないこと）
+	var before := player.global_position
+	Input.action_press("move_forward")
+	for i in 90:
+		await get_tree().physics_frame
+	Input.action_release("move_forward")
+	var moved := Vector2(player.global_position.x - before.x, player.global_position.z - before.z).length()
+	var dropped := before.y - player.global_position.y
+	var cruise_ok := moved > 3.0 and dropped < 1.0
+
+	# 下降して着地したら飛行が切れるか
+	Input.action_press("descend")
+	for i in 240:
+		await get_tree().physics_frame
+		if player.is_on_floor():
+			break
+	Input.action_release("descend")
+	for i in 30:
+		await get_tree().physics_frame
+	var still_flying := bool(player.get("_flying"))
+	var land_ok: bool = player.is_on_floor() and not still_flying
+
+	print("[walk_test] 飛行（上昇 %.1f m）: %s" % [climbed, "OK" if rise_ok else "NG"])
+	print("[walk_test] 飛行（水平に %.1f m 進み、落ちた分 %.2f m）: %s" % [moved, dropped, "OK" if cruise_ok else "NG"])
+	print("[walk_test] 飛行から着地して解除: %s（高さ %.2f）" % ["OK" if land_ok else "NG", player.global_position.y])
+	return rise_ok and cruise_ok and land_ok

@@ -2,8 +2,8 @@ extends Control
 ## スマホ・タブレット用のタッチ操作。指を何本使っても効くよう、画面のタッチを自分で仕分ける。
 ##   画面の左下側 … 触れた場所に仮想スティックが出る。ドラッグで移動（傾け具合が速さになる）
 ##   それ以外     … 1 本指でなぞると視点、2 本指でつまむとカメラの距離（ズーム）
-##   右下のボタン … ジャンプ / 走る（タップで入り切り）
-##   右上のボタン … 視点（一人称 / 三人称）/ 調整（F1）/ 次のワールド（F2）
+##   右下のボタン … ジャンプ（飛行中は上昇）/ 走る（タップで入り切り。飛行中は加速）/ 降りる（飛行中の下降）
+##   右上のボタン … 飛ぶ（F）/ 視点（一人称 / 三人称）/ 調整（F1）/ 次のワールド（F2）
 ##
 ## 大きさは画面の短いほうの辺に対する割合で決める（端末の解像度が違っても指で押せる大きさになる）。
 ## F1 の touch_ui_scale で全体の大きさ、touch_stick_radius でスティックの大きさを変えられる。
@@ -15,7 +15,7 @@ extends Control
 const STICK_ZONE_W := 0.48     # 画面の左からこの割合までがスティックの領域
 const STICK_ZONE_TOP := 0.32   # 画面の上からこの割合より下がスティックの領域
 const ACTION_OF := {"jump": "jump", "run": "run", "view": "toggle_view",
-	"debug": "toggle_debug", "world": "next_world"}
+	"debug": "toggle_debug", "world": "next_world", "fly": "fly", "descend": "descend"}
 
 var _unit: float = 100.0       # 画面の短いほうの辺。ボタンの大きさはこれに対する割合で決める
 var _stick_index: int = -1
@@ -199,11 +199,13 @@ func _buttons() -> Array:
 	var run_r := u * 0.082
 	list.append({"id": "jump", "shape": "circle", "center": Vector2(w - jump_r - u * 0.05, h - jump_r - u * 0.06), "radius": jump_r, "label": "ジャンプ"})
 	list.append({"id": "run", "shape": "circle", "center": Vector2(w - jump_r * 2.0 - run_r - u * 0.09, h - run_r - u * 0.055), "radius": run_r, "label": "走る"})
+	# 降りる（飛行中の下降）。ジャンプの上に置く
+	list.append({"id": "descend", "shape": "circle", "center": Vector2(w - jump_r - u * 0.05, h - jump_r * 3.0 - u * 0.09), "radius": run_r, "label": "降りる"})
 	var bw := u * 0.19
 	var bh := u * 0.085
 	var gap := u * 0.02
 	var top_y := u * 0.035
-	var labels := [["view", "視点"], ["debug", "調整"], ["world", "ワールド"]]
+	var labels := [["fly", "飛ぶ"], ["view", "視点"], ["debug", "調整"], ["world", "ワールド"]]
 	for i in labels.size():
 		var x: float = w - (bw + gap) * (labels.size() - i) - u * 0.02
 		list.append({"id": labels[i][0], "shape": "rect", "rect": Rect2(x, top_y, bw, bh), "label": labels[i][1]})

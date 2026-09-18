@@ -12,6 +12,8 @@ extends Node3D
 ##
 ## Mixamo のクリップに対する補正（_ready で行う）:
 ##   - モデルは +Z が正面なので 180 度回して Godot の前（-Z）に向ける
+##   - Jump / FallingIdle / Landing は腰が前に大きく倒れる。とんがり帽子が前を指して不自然なので、
+##     腰の回転を立ち姿勢のほうへ AIR_LEAN の割合まで戻す（前傾を残しつつ倒しすぎない）
 ##   - Jump / FallingIdle / Landing は腰の位置トラックに「跳び上がる高さ」が入っている。
 ##     高さは物理（CharacterBody3D）が動かすので、腰が立ち姿勢より上に浮く分は取り除き、
 ##     しゃがみ（下がる分）だけ残す。水平のずれも取り除く
@@ -42,6 +44,9 @@ const LAND_HARD_TIME := 0.6
 const LAND_HARD_SPEED := 8.0   # この落下速度 m/s 以上で強い着地
 const CLIMB_SEEK := 0.72       # よじ登り: Jump クリップの脚を畳んだ姿勢をゆっくり流す（専用クリップが無いので仮）
 const CLIMB_SCALE := 0.25
+const FLY_SCALE := 0.55        # 飛行中は Idle をこの速さで流す（ゆっくりで「浮いている」感じ）
+const AIR_LEAN := 0.35         # 空中クリップの前傾をこの割合まで弱める（1.0 = クリップのまま）
+const LEAN_BONES := ["hips", "spine", "spine1", "spine2"]   # 前傾を分け持っている骨（小文字で末尾一致）
 
 var _model: Node3D
 var _skel: Skeleton3D
@@ -59,6 +64,7 @@ var _land_timer: float = 0.0
 var _idle_time: float = 0.0
 var _was_on_floor: bool = true
 var _climbing: bool = false
+var _flying: bool = false
 var _spring: SkeletonModifier3D
 var _cloth_cfg := Vector4.ZERO   # 反映済みの [硬さ, 抵抗, 重力, 太さ]
 var _cloth_on: int = -1
@@ -77,6 +83,7 @@ func _ready() -> void:
 		var anim := _player.get_animation(anim_name)
 		anim.loop_mode = Animation.LOOP_LINEAR if anim_name in LOOPING else Animation.LOOP_NONE
 	_fix_air_clips()
+	_soften_air_lean()
 	_build_tree()
 	_build_cloth()
 
@@ -110,6 +117,46 @@ func _fix_air_clips() -> void:
 				var offset: Vector3 = basis * (v - stand)
 				offset = Vector3(0.0, minf(offset.y, 0.0), 0.0)
 				anim.track_set_key_value(i, k, stand + basis.inverse() * offset)
+
+
+## 空中クリップの腰の回転を、立ち姿勢のほうへ AIR_LEAN の割合まで戻す（前に倒れすぎるのを抑える）
+func _soften_air_lean() -> void:
+	if not _player.has_animation("Idle"):
+		return
+	# 立ち姿勢（Idle の最初のコマ）の、腰と背骨の回転を覚えておく
+	var stand := {}
+	var idle := _player.get_animation("Idle")
+	for i in idle.get_track_count():
+		var bone := _lean_bone_of(idle, i)
+		if bone != "" and idle.track_get_key_count(i) > 0:
+			stand[bone] = idle.track_get_key_value(i, 0)
+	if stand.is_empty():
+		return
+	for anim_name in AIR_CLIPS:
+		if not _player.has_animation(anim_name):
+			continue
+		var anim := _player.get_animation(anim_name)
+		for i in anim.get_track_count():
+			var bone := _lean_bone_of(anim, i)
+			if bone == "":
+				continue
+			if not stand.has(bone):
+				continue
+			var base: Quaternion = stand[bone]
+			for k in anim.track_get_key_count(i):
+				var q: Quaternion = anim.track_get_key_value(i, k)
+				anim.track_set_key_value(i, k, base.slerp(q, AIR_LEAN))
+
+
+## 前傾を分け持っている骨の回転トラックなら、その骨の名前（小文字）を返す。そうでなければ ""
+func _lean_bone_of(anim: Animation, i: int) -> String:
+	if anim.track_get_type(i) != Animation.TYPE_ROTATION_3D:
+		return ""
+	var path := str(anim.track_get_path(i)).to_lower()
+	for bone in LEAN_BONES:
+		if path.ends_with(bone):
+			return bone
+	return ""
 
 
 func _is_hips_position_track(anim: Animation, i: int) -> bool:
@@ -165,6 +212,16 @@ func _build_tree() -> void:
 	bt.connect_node("idle_move", 0, "idle_look")
 	bt.connect_node("idle_move", 1, "arms")
 
+	# 飛行（浮遊）: Idle をゆっくり流して「直立したまま宙に浮いている」姿にする。
+	# FallingIdle（落下）は前のめりの姿勢なので、帽子が前を指して魔法使いらしくない。
+	# 進む向きへの傾きは player.gd が身体ごと付ける（Tuning.fly_lean）
+	var fly_anim := AnimationNodeAnimation.new()
+	fly_anim.animation = "Idle"
+	bt.add_node("flyclip", fly_anim)
+	var ts_fly := AnimationNodeTimeScale.new()
+	bt.add_node("ts_fly", ts_fly)
+	bt.connect_node("ts_fly", 0, "flyclip")
+
 	# よじ登り（仮）: Jump クリップの別インスタンスをゆっくり流す
 	var climb_anim := AnimationNodeAnimation.new()
 	climb_anim.animation = "Jump"
@@ -175,12 +232,13 @@ func _build_tree() -> void:
 	bt.connect_node("seek_climb", 0, "ts_climb")
 
 	var state := AnimationNodeTransition.new()
-	state.input_count = 5
+	state.input_count = 6
 	state.set_input_name(0, "ground")
 	state.set_input_name(1, "jump")
 	state.set_input_name(2, "fall")
 	state.set_input_name(3, "land")
 	state.set_input_name(4, "climb")
+	state.set_input_name(5, "fly")
 	state.xfade_time = 0.15
 	bt.add_node("state", state)
 	bt.connect_node("state", 0, "idle_move")
@@ -188,6 +246,7 @@ func _build_tree() -> void:
 	bt.connect_node("state", 2, "fall")
 	bt.connect_node("state", 3, "seek_land")
 	bt.connect_node("state", 4, "seek_climb")
+	bt.connect_node("state", 5, "ts_fly")
 	# ポンチョの中に腕を収める: ジャンプ・落下・着地でも腕だけ待機ポーズにする。
 	# 本キャラは「腕はポンチョの中に隠れて見えない」設計（GAME_DESIGN 2026-09-17）なので、
 	# クリップのまま腕を振るとポンチョを突き抜ける。F1 の arm_swing で「クリップ通り」に戻せる。
@@ -210,6 +269,7 @@ func _build_tree() -> void:
 	_tree.set("parameters/state/transition_request", "ground")
 	_tree.set("parameters/ts_jump/scale", JUMP_SCALE)
 	_tree.set("parameters/ts_climb/scale", CLIMB_SCALE)
+	_tree.set("parameters/ts_fly/scale", FLY_SCALE)
 
 
 ## 腕の骨だけを差し替えるための Blend2 を作る（腕のトラックにフィルタを立てる）
@@ -224,6 +284,21 @@ func _make_arm_blend() -> AnimationNodeBlend2:
 				node.set_filter_path(idle_anim.track_get_path(i), true)
 				break
 	return node
+
+
+## 飛行の開始 / 終了（player.gd から）
+func set_flying(on: bool) -> void:
+	if _flying == on:
+		return
+	_flying = on
+	if on:
+		_state = "fly"
+		_tree.set("parameters/state/transition_request", "fly")
+	else:
+		_state = "fall"
+		_tree.set("parameters/state/transition_request", "fall")
+		_air_time = 0.0
+		_was_on_floor = false
 
 
 ## よじ登りの開始 / 終了（player.gd から）
@@ -291,6 +366,11 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 			elif foot_y < FOOT_DOWN and _foot_lifted[i]:
 				_foot_lifted[i] = false
 				footstep.emit(i, clampf(0.35 + 0.65 * _speed_s / maxf(run_speed, 0.1), 0.0, 1.0))
+
+	# 飛行中は空中・着地の切り替えをしない（姿勢は fly のまま）
+	if _flying:
+		_was_on_floor = false
+		return
 
 	# 空中と着地
 	if on_floor:

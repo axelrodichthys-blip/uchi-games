@@ -1,8 +1,8 @@
 extends Node
 ## メインシーンを読み込んで数フレーム描画し、PNG を保存して終了する。
 ## 使い方（tools/screenshot.sh から呼ぶ）:
-##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle|walk_away|run_away] [count] [every] [world.tscn]
-##   jump は右へ歩きながらジャンプ、hop はその場でジャンプ。world を省略すると main_scene
+##   godot --path game res://tools/screenshot_runner.tscn -- out.png [frames] [walk|run|jump|hop|idle|walk_away|run_away|fly|fly_up] [count] [every] [world.tscn]
+##   jump は右へ歩きながらジャンプ、hop はその場でジャンプ、fly は飛んで右へ進む、fly_up は飛んで上昇。world を省略すると main_scene
 ##   count > 1 のときは frames 後から every フレームおきに count 枚撮る（out_1.png, out_2.png ...）。
 ##   動きの指定があるときは横から見えるよう、カメラに対して右へ歩かせる
 
@@ -61,9 +61,21 @@ func _ready() -> void:
 		elif action == "run_away":
 			Input.action_press("move_forward")
 			Input.action_press("run")
+	var flying := action == "fly" or action == "fly_up"
 	for i in frames:
 		if (action == "jump" or action == "hop") and i == frames - 14:
 			Input.action_press("jump")
+		if flying:
+			# F で飛び立って、しばらく上昇 → そのあと前へ進む
+			if i == 2:
+				Input.action_press("fly")
+			elif i == 4:
+				Input.action_release("fly")
+				Input.action_press("jump")
+			elif i == int(frames * 0.5):
+				Input.action_release("jump")
+				if action == "fly":
+					Input.action_press("move_right")
 		await get_tree().process_frame
 	var err := _save(out_path if count <= 1 else _numbered(out_path, 1))
 	for n in range(2, count + 1):

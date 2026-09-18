@@ -18,6 +18,18 @@ var slope_max_angle: float = 46.0  # これより急な斜面は「壁」扱い�
 var air_control: float = 0.3       # 空中での操作の効き（0 で効かない、1 で地上と同じ）
 var floor_snap: float = 0.39       # 下り坂で足を地面に吸着させる距離 m（跳ねなくなる）
 var step_height: float = 0.39      # この高さまでの段差は歩いたまま足で登る m（膝くらい）
+
+# ---- 飛行（F キー / パッドの Y で入り切り）----
+# 空中での操作: WASD で進む / Space で上昇 / Ctrl・C で下降 / Shift で加速
+var fly_mode: int = 1              # 0=飛べない / 1=飛べる（OPTIONS 参照）
+var fly_speed: float = 6.0         # 水平に飛ぶ速さ m/s
+var fly_boost_speed: float = 14.0  # Shift を押している間の速さ m/s
+var fly_rise_speed: float = 4.5    # 上昇・下降の速さ m/s
+var fly_accel: float = 14.0        # 飛行中の加速の速さ（大きいほどキビキビ）
+var fly_damp: float = 3.0          # 手を離したときに止まる速さ（小さいほど長くふわっと滑る）
+var fly_lean: float = 20.0         # 進む向きへ身体を傾ける角度 度（0 で傾けない）
+var fly_takeoff: float = 2.0       # 地上から飛び立つときの上向きの初速 m/s
+var fly_max_height: float = 140.0  # これ以上は上がれない m（世界の外へ出ないように）
 var climb_height: float = 1.3      # この高さまでの段差は前に進み続けると腕で登る m（肩〜首くらい）
 var climb_time: float = 0.7        # 登る動作にかかる秒数
 
@@ -153,12 +165,21 @@ const RANGES := {
 	"anim_arm_swing": [0.0, 2.0, 0.05],
 	"anim_bounce": [0.0, 2.0, 0.05],
 	"anim_lean_run": [0.0, 25.0, 0.5],
+	"fly_speed": [1.0, 20.0, 0.5],
+	"fly_boost_speed": [2.0, 40.0, 1.0],
+	"fly_rise_speed": [1.0, 15.0, 0.5],
+	"fly_accel": [2.0, 40.0, 1.0],
+	"fly_damp": [0.2, 15.0, 0.2],
+	"fly_lean": [0.0, 45.0, 1.0],
+	"fly_takeoff": [0.0, 8.0, 0.5],
+	"fly_max_height": [20.0, 400.0, 10.0],
 }
 
 # デバッグパネル用: 選択式の設定。変数名 -> 選択肢の名前（値はその index）
 const OPTIONS := {
 	"character_model": ["Mixamo のアニメ（本命）", "数式の仮キャラ（比較用）"],
 	"arm_swing": ["歩き・走りで腕を振らない（待機の腕）", "クリップ通りに振る"],
+	"fly_mode": ["飛べない", "飛べる（F キー / パッド Y）"],
 	"cloth_sway": ["マントを揺らさない", "マントを揺らす"],
 	"camera_collision_mode": ["すり抜けて小物を透過", "引き寄せ（地形・小物を避ける）"],
 	"touch_controls": ["自動（タッチ端末で表示）", "常に表示", "隠す"],

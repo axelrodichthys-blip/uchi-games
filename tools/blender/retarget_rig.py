@@ -54,6 +54,9 @@ ANCHOR_HIPS = ("Hips", 0.660)      # 本キャラの股の高さ（build_travele
 ANCHOR_FOOT = ("LeftFoot", 0.195)  # 本キャラの足首の高さ（ANKLE 0.200 の少し下）
 
 POWER = 2.0        # 重みの配分。距離^-POWER。大きいほど硬い（関節が折れやすい）
+# 頭はまるごと Head の骨に固く付ける。距離で配ると目が Neck と Head に半分ずつ乗って、
+# 帽子（Head に 100%）と目がアニメ中にずれる（帽子が顔にかぶさり、目が帽子を突き抜けて見えた）
+HEAD_LOCK_Z = 1.03 # この高さ（素体の設計座標 m）より上は Head に 1.0
 NEAR_N = 2         # 何本の骨に配るか
 
 # ---------------------------------------------------------------- 読み込み
@@ -161,14 +164,21 @@ groups = {}
 for name, _, _ in segs:
     groups[name] = body.vertex_groups.get(name) or body.vertex_groups.new(name=name)
 
+head_bone = find_bone(arm.data.bones, "Head")
+n_head = 0
 for v in body.data.vertices:
     p = body.matrix_world @ v.co
+    if head_bone is not None and p.z >= HEAD_LOCK_Z:
+        groups[head_bone.name].add([v.index], 1.0, "REPLACE")
+        n_head += 1
+        continue
     ds = sorted(((dist_to_seg(p, a, b), name) for name, a, b in segs))[:NEAR_N]
     ws = [(1.0 / max(d, 1e-4) ** POWER, name) for d, name in ds]
     total = sum(w for w, _ in ws)
     for w, name in ws:
         groups[name].add([v.index], w / total, "REPLACE")
-print("[retarget] 重み付け: 骨 %d 本に、近い %d 本へ 1/距離^%.0f で配分" % (len(segs), NEAR_N, POWER))
+print("[retarget] 重み付け: 骨 %d 本に、近い %d 本へ 1/距離^%.0f で配分（うち頭 %d 頂点は %s に固定）"
+      % (len(segs), NEAR_N, POWER, n_head, head_bone.name if head_bone else "-"))
 
 body.parent = arm
 body.matrix_parent_inverse = arm.matrix_world.inverted()

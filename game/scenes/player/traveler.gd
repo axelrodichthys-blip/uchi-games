@@ -428,3 +428,8 @@ func deg_to_rot(deg: float) -> float:
 func _set_rot(node: Node3D, target: Vector3, delta: float, rate: float = 18.0) -> void:
 	var t := clampf(rate * delta, 0.0, 1.0)
 	node.rotation = node.rotation.lerp(target, t)
+
+
+## 飛行の開始 / 終了（player.gd から）。数式の仮キャラは専用の姿勢を持たないので、空中の姿勢のまま
+func set_flying(_on: bool) -> void:
+	pass

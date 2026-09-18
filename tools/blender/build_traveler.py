@@ -13,10 +13,7 @@
 #
 # 座標: Blender は Z 上。ここでは (x, 前, 高さ) で考え、pos() で Blender 座標に直す。
 #       キャラは -Z（Godot の前）を向く。キャラの右 = +X。
-# 高さの基準（靴底 = 0 m。GAME_DESIGN.md の表）:
-#   ブーツ 0〜0.18 / 見えている脚 0.18〜0.34 / ポンチョ 0.34〜1.18 / 目の帯 1.18〜1.28
-#   つば 1.28 / 帽子の円錐 1.30〜1.60
-#   ポンチョ無しの素体は 0〜1.33（頭のてっぺん）。Mixamo にはこの高さで渡す。
+# 高さの基準（靴底 = 0 m）は下の「高さの表」を見ること。確定画像の実測値。
 import math
 import os
 import sys
@@ -63,12 +60,12 @@ SHOULDER = 0.955
 VEST_TOP = 0.975            # 肩の高さ（基準画像では肩より上に出ない）
 NECK_BASE = 0.950
 HEAD_BOTTOM = 1.000         # ポンチョ無し 0.704
-EYE = 1.164                 # 目の帯の中央（1.136〜1.192）
+EYE = 1.152                 # 目の帯の中央。つばと襟の間に余裕を持たせる（2026-09-18 に下げた）
 HEAD_TOP = 1.300            # ポンチョ無し 0.960。上半分は帽子の中に入る
 TUFT_TOP = 1.310            # 羽の突起の先（帽子の中にぎりぎり収まる）
-PONCHO_TOP = 1.128          # 立ち襟の上端 = 目の帯の下端
-BRIM = 1.200                # つばの下端 = 目の帯の上端
-HAT_CONE_BASE = 1.205
+PONCHO_TOP = 1.112          # 立ち襟の上端 = 目の帯の下端（顔を出すため 1.128 から下げた）
+BRIM = 1.214                # つばの下端 = 目の帯の上端（目を隠さないよう 1.200 から上げた）
+HAT_CONE_BASE = 1.219
 HAT_TIP = 1.600
 
 # 太さの表（実測の「幅 / 身長」× 身長 の半分）
@@ -160,15 +157,24 @@ def box(name, size, at, mat, rot=(0, 0, 0)):
     return add(o, mat)
 
 def lathe(name, profile, mat, segs=22, a0=0.0, a1=TAU, depth=1.0,
-          wave=0.0, wave_n=3, thickness=0.0, cap_top=False, cap_bottom=False, x_off=0.0, tilt=0.0, hwave=0.0):
-    """profile = [(高さ, 半径, 前へのずれ), ...] を縦軸のまわりに回す。
-    a=0 が前（+前）、a が増えるとキャラの右（+X）へ回る。"""
-    closed = abs((a1 - a0) - TAU) < 1e-6
+          wave=0.0, wave_n=3, thickness=0.0, cap_top=False, cap_bottom=False, x_off=0.0, tilt=0.0, hwave=0.0,
+          gaps=None, shifts=None):
+    """profile = [(高さ, 半径, 前へのずれ), ...] を縦軸のまわりに回す。a=0 が前、a が増えるとキャラの左へ回る。
+    gaps:   輪ごとの「前あきの半分の角度（ラジアン）」。下へ行くほど広げると前が開いた布になる
+    shifts: 輪ごとに角度の範囲そのものをずらす量（重ね合わせの端を前あきの縁に合わせる用）"""
+    if gaps is not None or shifts is not None:
+        closed = False
+    else:
+        closed = abs((a1 - a0) - TAU) < 1e-6
     n_ring = segs if closed else segs + 1
     verts, faces = [], []
-    for (h, r, fwd) in profile:
+    for j, (h, r, fwd) in enumerate(profile):
+        g = gaps[j] if gaps is not None else 0.0
+        sh = shifts[j] if shifts is not None else 0.0
+        b0 = a0 + g + sh
+        b1 = (a1 - g if a1 > a0 else a1 + g) + sh
         for i in range(n_ring):
-            a = a0 + (a1 - a0) * (i / segs)
+            a = b0 + (b1 - b0) * (i / segs)
             rr = r * (1.0 + wave * math.sin(wave_n * a)) if wave else r
             dh = tilt * math.cos(a) * (rr / max(profile[-1][1], 1e-6))   # 前（a=0）ほど下がる
             if hwave:
@@ -411,23 +417,39 @@ PONCHO_PROFILE = [
     (0.704, 0.230, 0.0), (0.640, 0.247, 0.0), (0.576, 0.265, 0.0), (0.512, 0.282, 0.0),
     (0.448, 0.297, 0.0), (0.400, 0.298, 0.0), (PONCHO_HEM, 0.290, 0.0),
 ]
-lathe("Poncho", PONCHO_PROFILE, MAT_CLOTH, segs=26, depth=0.93, thickness=0.013)
+# 前あき: ボタンの高さ（1.02m）より下で少しずつ開き、裾で一番広くなる。
+# 設計（GAME_DESIGN 2.）の「胸の 1 箇所を大きなボタンで留め、それ以外の前側は開いている」を形にした
+OPEN_CENTER = math.radians(10.0)    # 前あきの中心。少しキャラの左寄り（基準画像の合わせ目の位置）
+OPEN_MAX = math.radians(15.0)       # 裾での前あきの半分の角度
+OPEN_FROM, OPEN_TO = 1.020, PONCHO_HEM
+def open_gap(h):
+    t = (OPEN_FROM - h) / (OPEN_FROM - OPEN_TO)
+    return OPEN_MAX * max(0.0, min(1.0, t)) ** 1.25
+PONCHO_GAPS = [open_gap(h) for (h, _, _) in PONCHO_PROFILE]
+lathe("Poncho", PONCHO_PROFILE, MAT_CLOTH, segs=30, depth=0.93, thickness=0.013,
+      a0=OPEN_CENTER, a1=OPEN_CENTER + TAU, gaps=PONCHO_GAPS)
 # 裾が少し波打つ縁取り
 lathe("PonchoHem", [(PONCHO_HEM + 0.034, 0.296, 0.0), (PONCHO_HEM, 0.293, 0.0)], MAT_CLOTH,
-      segs=36, depth=0.93, wave=0.024, wave_n=9, hwave=0.012, thickness=0.014)
+      segs=36, depth=0.93, wave=0.024, wave_n=9, hwave=0.012, thickness=0.014,
+      a0=OPEN_CENTER, a1=OPEN_CENTER + TAU,
+      gaps=[open_gap(PONCHO_HEM + 0.034), open_gap(PONCHO_HEM)])
 # 立ち襟の折り返し（顔の下半分を隠す帯。基準画像でははっきり見える）
-lathe("PonchoCollar", [(1.052, 0.152, 0.0), (1.090, 0.159, 0.0), (PONCHO_TOP, 0.161, 0.0)], MAT_CLOTH,
+lathe("PonchoCollar", [(1.040, 0.152, 0.0), (1.076, 0.159, 0.0), (PONCHO_TOP, 0.161, 0.0)], MAT_CLOTH,
       segs=26, depth=0.93, thickness=0.012)
 # 前の重ね合わせ（キャラの右の前身頃が左へ被さる。合わせ目が裾まで通る）
-flap = [(h, r * 1.040, f) for (h, r, f) in PONCHO_PROFILE[4:]]
-lathe("PonchoFlap", flap, MAT_CLOTH, segs=12,
-      a0=math.radians(32.0), a1=math.radians(-102.0), depth=0.93, thickness=0.011)
+# 重ね合わせの前身頃。端を前あきの縁に合わせて、合わせ目が裾まで通るようにする
+flap = [(h, r * 1.040, f) for (h, r, f) in PONCHO_PROFILE[3:]]
+flap_shift = [-open_gap(h) for (h, _, _) in flap]   # 前あきの縁に端を合わせる（覆わない）
+lathe("PonchoFlap", flap, MAT_CLOTH, segs=14,
+      a0=OPEN_CENTER, a1=OPEN_CENTER - math.radians(128.0), depth=0.93, thickness=0.011,
+      shifts=flap_shift)
 # 胸の大きなボタン（正面から見て左 = キャラの右胸 = -X）
 button("PonchoButton", pos(-0.076, 0.150, 1.020), 0.028, MAT_BUTTON, thickness=0.011)
 
 # ---- 帽子（短い反り上がったつば + 背の高い円錐 + 丸ボタン）
-lathe("HatBrim", [(1.216, 0.104, 0.0), (BRIM - 0.008, 0.150, 0.0), (BRIM - 0.004, 0.192, 0.0), (1.214, 0.224, 0.0), (1.240, 0.232, 0.0)],
-      MAT_CLOTH, segs=26, thickness=0.008, tilt=-0.024)
+# つばの前下がりは弱める。強いと前縁が目より下に来て、正面から顔が見えなくなる
+lathe("HatBrim", [(1.230, 0.104, 0.0), (BRIM - 0.006, 0.150, 0.0), (BRIM + 0.002, 0.192, 0.0), (1.230, 0.224, 0.0), (1.254, 0.232, 0.0)],
+      MAT_CLOTH, segs=26, thickness=0.008, tilt=-0.009)
 # 円錐は先端がわずかに後ろへ傾く（まっすぐな針にしない）
 cone_rings = []
 for i in range(11):
@@ -436,7 +458,7 @@ for i in range(11):
     r = HAT_BASE_R * (1.0 - t) ** 0.98
     cone_rings.append((h, max(r, 0.0), -0.145 * (t ** 1.6)))     # 後ろ = -前。先端ほど後ろへ反る
 lathe("HatCone", cone_rings, MAT_CLOTH, segs=20, cap_bottom=True)
-button("HatButton", pos(0.0, 0.089, 1.330), 0.027, MAT_BUTTON, thickness=0.010)
+button("HatButton", pos(0.0, 0.086, 1.344), 0.027, MAT_BUTTON, thickness=0.010)
 
 outfit_parts = list(group)
 outfit = finish(outfit_parts, "TravelerOutfit")
