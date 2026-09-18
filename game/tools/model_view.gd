@@ -41,7 +41,9 @@ func _ready() -> void:
 	var look := Vector3(0, height * 0.5, 0)
 	var dist := height * 2.6
 	# Godot の前は -Z。正面から見るにはカメラを -Z 側に置く
-	var angles := [0.0, 90.0, 180.0, 270.0]
+	# 基準画像と同じ「正面 → 左側面 → 背面 → 右側面」の順に撮る。
+	# カメラを +X に置くとキャラの右側面が写るので、左側面は 270 度のほう。
+	var angles := [0.0, 270.0, 180.0, 90.0]
 	var names := ["正面", "左側面", "背面", "右側面"]
 	for i in angles.size():
 		var a: float = deg_to_rad(float(angles[i]))

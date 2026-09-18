@@ -1,6 +1,6 @@
 # HANDOFF.md — 引き継ぎメモ
 
-最終更新: 2026-09-18（クラウドセッション、2 回目の詰めまで）
+最終更新: 2026-09-18（クラウドセッション。モデルの詰め + 次の一手の準備まで）
 
 ## ブラウザで確認できる URL
 
@@ -77,6 +77,35 @@
 - `add_outfit.py` → `add_cloth_bones.py` の流れは、**今の仮キャラのリグを相手に通ることを確認済み**
   （本キャラのリグはまだ無いので、寸法が合った状態での確認はできていません）
 
+## 次の一手を 2 本用意しました（2026-09-18 後半）
+
+今のモデルは「寸法は合っているが、絵の柔らかさ（布のシワ・たるみ）が出ていない」状態です。
+そこを埋めるために、ブラウザでできる道を 2 つ用意しました。**どちらも先に進める必要はなく、
+やりたいほうだけで構いません。**
+
+### 道その1: AI 3D 生成を「参考彫刻」として 1 回だけ使う → `docs/AI_SCULPT_GUIDE.md`
+
+- 渡す画像は用意済み: `docs/reference/character/ai_input/`（4 面図を 1 面ずつに割ったもの）
+  - **まず `poncho_1_front.png` の 1 枚だけ**を Tripo AI か Meshy AI に入れるのがおすすめ
+- できた .glb を `docs/reference/character/ai_sculpt/` にアップロード
+- Claude 側で寸法を揃えて四面図にし、今のモデルと基準画像の 3 つを並べて、
+  足りない形を `build_traveler.py` に入れ直します
+- **生成物はゲームに入れません**（見比べる材料としてだけ使う）。無料枠の非商用制限に触れない使い方です
+
+### 道その2: 自宅 PC の Blender で直接手を入れる → `docs/BLENDER_GUIDE.md`
+
+- Blender 未経験でも通せるよう、**このプロジェクトでやることだけ**に絞った手順書を書きました
+  - 画面の回し方 / モデルの開き方 / **ポンチョにシワを彫る手順** / 大きさの変え方 / 書き出し方
+  - 15 分で一周できる「最初の練習」付き
+- 直したら `docs/reference/character/edited/` にアップロード → Claude が四面図で見比べます
+- **注意**: 手を入れるなら Mixamo に渡す前に。リグが入った後だと骨の重みが壊れます
+- 手で彫ったモデルをどう扱うか（スクリプトを正とするか、彫ったものを正とするか）は
+  手順書の 5 章に書いたので、そこだけ決めてください
+
+### ついでに直したこと
+- 四面図ツールの左右が基準画像と逆でした（正面 / **右** / 背面 / **左** の順に撮っていた）。
+  基準画像と同じ **正面 / 左側面 / 背面 / 右側面** の順に直したので、比較画像も作り直してあります
+
 ## ユーザーにお願いしたいこと（次の一歩）
 
 **`docs/reference/character/traveler_model_compare_poncho.png` を見て、この形で進めてよいか教えてください。**
@@ -138,6 +167,11 @@ OK が出たら、**ブラウザでの作業をお願いします**（手順は 
 | `tools/blender/add_cloth_bones.py` | 布に揺れ用の骨の鎖を差し込む |
 | `tools/blender/mixamo_fbx_to_glb.py` | Mixamo の FBX 群 → .glb（身長と材質のもと OBJ を引数で渡せる） |
 | `tools/measure_reference.py` | 基準画像を画素で測って寸法表を出す |
+| `tools/compare_silhouette.py` | 基準画像とモデルのシルエットの幅を高さごとに突き合わせる |
+| `tools/split_turnaround.py` | 4 面図を 1 面ずつに割る（AI 3D 生成に渡す用） |
+| `tools/blender/normalize_sculpt.py` | AI 生成メッシュを身長 1.6m・靴底 0 に揃える |
+| `docs/AI_SCULPT_GUIDE.md` | AI 3D 生成を参考彫刻として使う手順 |
+| `docs/BLENDER_GUIDE.md` | **Blender 初心者向けの手順書**（このプロジェクトでやることだけ） |
 | `tools/model-view.sh` / `game/tools/model_view.tscn` | .glb を四面図で描く |
 | `docs/reference/character/README.md` | 基準画像・パレット・**実測の寸法表**・作り方 |
 | `docs/MIXAMO_GUIDE.md` | Mixamo の手順（0-b 章が本キャラ用） |
