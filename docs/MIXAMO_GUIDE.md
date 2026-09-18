@@ -39,8 +39,8 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 
 1. `blender --background --python tools/blender/build_traveler.py` … メッシュを作る（Claude）
 2. `docs/reference/character/traveler_body.obj` を Mixamo にアップロードして自動リグ、アニメ 10 本を落とす（**ユーザー**。下の 1〜3 章の手順は同じ。置き場所だけ `docs/reference/mixamo_body/` にする）
-3. `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo_body game/assets/traveler_rigged.glb 1.3000 docs/reference/character/traveler_body.obj`
-   （**身長は 1.6 ではなく 1.3000**。素体には帽子が無いため。値は `traveler_body_height.txt`）
+3. `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo_body game/assets/traveler_rigged.glb 1.3156 docs/reference/character/traveler_body.obj`
+   （**身長は 1.6 ではなく 1.3156**。素体には帽子が無いため。値は `traveler_body_height.txt`）
 4. `blender --background --python tools/blender/add_outfit.py -- game/assets/traveler_rigged.glb game/assets/traveler_outfit.glb game/assets/traveler_dressed.glb`
 5. `blender --background --python tools/blender/add_cloth_bones.py -- game/assets/traveler_dressed.glb game/assets/traveler_cloth.glb`
    （ゲームが読むのは `traveler_cloth.glb`。ここまで来れば差し替え完了）

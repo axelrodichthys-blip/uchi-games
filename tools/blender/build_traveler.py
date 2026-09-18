@@ -49,10 +49,10 @@ SHORTS_HEM = 0.493          # ポンチョ無し 0.345（見えている脚の�
 HIP = 0.680
 SHORTS_TOP = 0.790
 BELT = 0.752                # ポンチョ無し 0.510〜0.545
-VEST_HEM = 0.770            # ポンチョ無し 0.520
+VEST_HEM = 0.790            # ベルトが下に見える高さ
 CHEST = 0.880
 SHOULDER = 0.955
-VEST_TOP = 1.000            # ポンチョ無し 0.700
+VEST_TOP = 0.975            # 肩の高さ（基準画像では肩より上に出ない）
 NECK_BASE = 0.950
 HEAD_BOTTOM = 1.000         # ポンチョ無し 0.704
 EYE = 1.164                 # 目の帯の中央（1.136〜1.192）
@@ -152,7 +152,7 @@ def box(name, size, at, mat, rot=(0, 0, 0)):
     return add(o, mat)
 
 def lathe(name, profile, mat, segs=22, a0=0.0, a1=TAU, depth=1.0,
-          wave=0.0, wave_n=3, thickness=0.0, cap_top=False, cap_bottom=False, x_off=0.0, tilt=0.0):
+          wave=0.0, wave_n=3, thickness=0.0, cap_top=False, cap_bottom=False, x_off=0.0, tilt=0.0, hwave=0.0):
     """profile = [(高さ, 半径, 前へのずれ), ...] を縦軸のまわりに回す。
     a=0 が前（+前）、a が増えるとキャラの右（+X）へ回る。"""
     closed = abs((a1 - a0) - TAU) < 1e-6
@@ -163,6 +163,8 @@ def lathe(name, profile, mat, segs=22, a0=0.0, a1=TAU, depth=1.0,
             a = a0 + (a1 - a0) * (i / segs)
             rr = r * (1.0 + wave * math.sin(wave_n * a)) if wave else r
             dh = tilt * math.cos(a) * (rr / max(profile[-1][1], 1e-6))   # 前（a=0）ほど下がる
+            if hwave:
+                dh += hwave * math.sin(wave_n * a + 0.7)
             verts.append(pos(x_off + rr * math.sin(a), rr * math.cos(a) * depth + fwd, h + dh))
     rings = len(profile)
     for j in range(rings - 1):
@@ -261,24 +263,24 @@ group = []
 
 # ---- 頭（卵型。上が太く、下があごに向かって細る。上半分は帽子の中に入る）
 HEAD_PROFILE = [
-    (1.000, 0.000, 0.0), (1.012, 0.055, 0.0), (1.036, 0.090, 0.0), (1.066, 0.112, 0.0),
-    (1.100, 0.128, 0.0), (1.135, 0.136, 0.0), (1.170, 0.138, 0.0), (1.205, 0.134, 0.0),
-    (1.240, 0.123, 0.0), (1.272, 0.098, 0.0), (1.292, 0.058, 0.0), (1.300, 0.000, 0.0),
+    (1.000, 0.000, 0.0), (1.012, 0.058, 0.0), (1.036, 0.095, 0.0), (1.066, 0.120, 0.0),
+    (1.100, 0.136, 0.0), (1.135, 0.144, 0.0), (1.170, 0.145, 0.0), (1.205, 0.140, 0.0),
+    (1.240, 0.124, 0.0), (1.272, 0.098, 0.0), (1.292, 0.058, 0.0), (1.300, 0.000, 0.0),
 ]
 lathe("Head", HEAD_PROFILE, MAT_BODY, segs=22, depth=0.94)
 # 首（細い。2026-09-17 の変更）
 capsule("Neck", 0.032, pos(0, 0, NECK_BASE - 0.015), pos(0, 0, HEAD_BOTTOM + 0.045), MAT_BODY, segments=10, caps=False)
 # 頭頂部の後ろの羽のような突起（形で作る。帽子を被るとほぼ隠れる長さ）
-for i, (dx, length, ang, w) in enumerate([(-0.025, 0.044, 55.0, 0.011), (0.002, 0.053, 48.0, 0.013), (0.028, 0.040, 62.0, 0.010)]):
-    base = pos(dx, -0.030, 1.240)
+for i, (dx, length, ang, w) in enumerate([(-0.026, 0.070, 55.0, 0.012), (0.002, 0.090, 48.0, 0.014), (0.028, 0.064, 62.0, 0.011)]):
+    base = pos(dx, -0.030, 1.245)
     t = math.radians(ang)
     tip = base + Vector((dx * 0.3, math.sin(t) * length, math.cos(t) * length))
     capsule("Tuft%d" % i, w, base, tip, MAT_BODY, segments=6, caps=False)
     sphere("TuftTip%d" % i, w * 0.4, tip, MAT_BODY, segments=6, rings=4)
 # 目（縦長の楕円。目の帯 1.136〜1.192 に収める）
 for sx in (-1.0, 1.0):
-    sphere("Eye%s" % ("R" if sx < 0 else "L"), 0.033, pos(sx * 0.052, 0.116, EYE), MAT_EYE,
-           scale=(0.70, 0.40, 0.95), segments=12, rings=8)
+    sphere("Eye%s" % ("R" if sx < 0 else "L"), 0.037, pos(sx * 0.055, 0.124, EYE), MAT_EYE,
+           scale=(0.72, 0.40, 1.0), segments=12, rings=8)
 
 # ---- 胴（黒）
 lathe("Torso", [
@@ -287,14 +289,14 @@ lathe("Torso", [
 ], MAT_BODY, segs=18, depth=0.86, cap_top=True, cap_bottom=True)
 
 # ---- ベスト（袖なし・折り襟・ボタン 3 つ）。前を V に開ける
-VEST_RINGS = [(VEST_HEM, 0.100), (0.82, 0.106), (0.88, 0.109), (0.94, 0.107), (VEST_TOP, 0.092)]
+VEST_RINGS = [(VEST_HEM, 0.095), (0.83, 0.097), (0.88, 0.098), (0.93, 0.096), (VEST_TOP, 0.084)]
 segs = 22
 verts, faces = [], []
 for j, (h, r) in enumerate(VEST_RINGS):
     for i in range(segs):
         a_ = TAU * i / segs
         front = max(0.0, math.cos(a_)) ** 1.2
-        dip = (0.080 if j == len(VEST_RINGS) - 1 else 0.032 if j == len(VEST_RINGS) - 2 else 0.0) * front
+        dip = (0.095 if j == len(VEST_RINGS) - 1 else 0.040 if j == len(VEST_RINGS) - 2 else 0.0) * front
         verts.append(pos(r * math.sin(a_), r * math.cos(a_) * 0.88, h - dip))
 for j in range(len(VEST_RINGS) - 1):
     for i in range(segs):
@@ -306,15 +308,15 @@ mesh.update()
 vest = bpy.data.objects.new("Vest", mesh)
 bpy.context.collection.objects.link(vest)
 mod = vest.modifiers.new("Solidify", "SOLIDIFY")
-mod.thickness = 0.013
+mod.thickness = 0.010
 mod.offset = 1.0
 add(vest, MAT_VEST)
 # 折り襟: 前の V のところだけ開けて、肩から後ろをぐるりと一周
-lathe("VestCollar", [(0.962, 0.102, 0.0), (0.996, 0.112, 0.0), (1.012, 0.124, 0.0)], MAT_VEST,
-      segs=20, a0=math.radians(34.0), a1=math.radians(326.0), depth=0.88, thickness=0.011)
+lathe("VestCollar", [(0.950, 0.094, 0.0), (0.972, 0.100, 0.0), (0.984, 0.110, 0.0)], MAT_VEST,
+      segs=20, a0=math.radians(40.0), a1=math.radians(320.0), depth=0.88, thickness=0.008)
 # ボタン 3 つ（前の中央。ポンチョ無しの画の 0.540 / 0.577 / 0.616 に対応）
-for h in (0.772, 0.825, 0.878):
-    button("VestButton_%d" % int(h * 1000), pos(0, 0.100, h), 0.011, MAT_BUTTON, thickness=0.005)
+for h in (0.805, 0.845, 0.885):
+    button("VestButton_%d" % int(h * 1000), pos(0, 0.092, h), 0.011, MAT_BUTTON, thickness=0.005)
 
 # ---- ベルト（バックル付き）
 lathe("Belt", [(BELT - 0.021, 0.106, 0.0), (BELT + 0.021, 0.106, 0.0)], MAT_LEATHER,
@@ -322,7 +324,7 @@ lathe("Belt", [(BELT - 0.021, 0.106, 0.0), (BELT + 0.021, 0.106, 0.0)], MAT_LEAT
 box("Buckle", (0.038, 0.011, 0.034), pos(0, 0.098, BELT), MAT_BUTTON)
 
 # ---- 半ズボン（腰 → 太もも半ば。裾を折り返す）
-lathe("Shorts", [(0.62, 0.107, 0.0), (0.70, 0.108, 0.0), (SHORTS_TOP, 0.102, 0.0)], MAT_SHORTS,
+lathe("Shorts", [(0.62, 0.103, 0.0), (0.70, 0.104, 0.0), (SHORTS_TOP, 0.099, 0.0)], MAT_SHORTS,
       segs=20, depth=0.90, thickness=0.013)
 def leg_x(sx, h):
     t = max(0.0, min(1.0, (HIP - h) / (HIP - KNEE)))
@@ -341,8 +343,8 @@ box("BagFlap", (0.088, 0.044, 0.030), bag_at + Vector((0, -0.008, 0.050)), MAT_L
 box("BagStrap", (0.022, 0.046, 0.058), bag_at + Vector((0, 0.024, 0.046)), MAT_LEATHER)
 
 # ---- 腕（A ポーズ）と手袋（5 本指）。ポンチョの中に収まる長さ・角度にする
-ARM_ANGLE = math.radians(21.0)
-UPPER_ARM, FORE_ARM = 0.163, 0.138
+ARM_ANGLE = math.radians(18.0)
+UPPER_ARM, FORE_ARM = 0.190, 0.160
 for sx in (-1.0, 1.0):
     tag = "L" if sx > 0 else "R"
     sh = pos(sx * 0.070, 0, SHOULDER - 0.015)
@@ -381,9 +383,9 @@ for sx in (-1.0, 1.0):
         (0.055, 0.112, 0.128, 0.028),
         (0.090, 0.098, 0.104, 0.014),
         (0.128, 0.072, 0.075, 0.000),
-        (0.158, 0.068, 0.068, -0.006),
-        (0.162, 0.076, 0.076, -0.006),
-        (BOOT_TOP, 0.073, 0.073, -0.006),
+        (0.156, 0.067, 0.067, -0.006),
+        (0.160, 0.084, 0.084, -0.006),
+        (BOOT_TOP, 0.081, 0.081, -0.006),
     ], MAT_BOOT, segs=20, x_off=bx)
 
 body_parts = list(group)
@@ -403,8 +405,8 @@ PONCHO_PROFILE = [
 ]
 lathe("Poncho", PONCHO_PROFILE, MAT_CLOTH, segs=26, depth=0.93, thickness=0.013)
 # 裾が少し波打つ縁取り
-lathe("PonchoHem", [(PONCHO_HEM + 0.030, 0.296, 0.0), (PONCHO_HEM, 0.291, 0.0)], MAT_CLOTH,
-      segs=26, depth=0.93, wave=0.018, wave_n=7, thickness=0.014)
+lathe("PonchoHem", [(PONCHO_HEM + 0.034, 0.296, 0.0), (PONCHO_HEM, 0.293, 0.0)], MAT_CLOTH,
+      segs=36, depth=0.93, wave=0.024, wave_n=9, hwave=0.012, thickness=0.014)
 # 立ち襟の折り返し（顔の下半分を隠す帯。基準画像でははっきり見える）
 lathe("PonchoCollar", [(1.052, 0.152, 0.0), (1.090, 0.159, 0.0), (PONCHO_TOP, 0.161, 0.0)], MAT_CLOTH,
       segs=26, depth=0.93, thickness=0.012)
@@ -416,8 +418,8 @@ lathe("PonchoFlap", flap, MAT_CLOTH, segs=12,
 button("PonchoButton", pos(-0.076, 0.150, 1.020), 0.028, MAT_BUTTON, thickness=0.011)
 
 # ---- 帽子（短い反り上がったつば + 背の高い円錐 + 丸ボタン）
-lathe("HatBrim", [(1.216, 0.104, 0.0), (BRIM - 0.006, 0.150, 0.0), (BRIM + 0.002, 0.198, 0.0), (1.218, 0.236, 0.0), (1.234, 0.230, 0.0)],
-      MAT_CLOTH, segs=26, thickness=0.008, tilt=-0.022)
+lathe("HatBrim", [(1.216, 0.104, 0.0), (BRIM - 0.008, 0.150, 0.0), (BRIM - 0.004, 0.192, 0.0), (1.214, 0.224, 0.0), (1.240, 0.232, 0.0)],
+      MAT_CLOTH, segs=26, thickness=0.008, tilt=-0.024)
 # 円錐は先端がわずかに後ろへ傾く（まっすぐな針にしない）
 cone_rings = []
 for i in range(11):
