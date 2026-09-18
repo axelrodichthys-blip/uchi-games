@@ -101,6 +101,10 @@ uchi-games/
 - クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump] [枚数] [間隔]`（xvfb + Mesa のソフトウェア描画。動作確認済み）。複数枚は `python3 tools/sheet.py build/shot build/sheet.png` で 1 枚に並べる（Pillow が必要: `pip install pillow`）
 - クラウド: スクリーンショットの開始位置・向き・Tuning の上書き: `UCHI_POS="x,y,z" UCHI_YAW=-90 UCHI_PITCH=-5 UCHI_TUNING="rain_amount=0.1" bash tools/screenshot.sh ...`（向きは動きの指定がある回だけ効く）、ワールド指定は `WORLD=res://scenes/worlds/gray/gray_world.tscn`
 - クラウド: アニメクリップ単体の確認: `bash tools/clip-view.sh build/clip Jump 0.0,0.2,0.4`（指定時刻のポーズを PNG に）
+- クラウド: 本キャラのメッシュ生成: `blender --background --python tools/blender/build_traveler.py`（素体 `docs/reference/character/traveler_body.obj` + ポンチョ帽子 `game/assets/traveler_outfit.glb` + 確認用 `traveler_preview.glb`）
+- クラウド: 基準画像の実測: `python3 tools/measure_reference.py docs/reference/character/traveler_turnaround_poncho.png`
+- クラウド: .glb を四面図で見比べる: `bash tools/model-view.sh build/full res://assets/traveler_preview.glb 1.6` → `python3 tools/sheet.py build/full build/sheet.png`
+- クラウド: リグ済み .glb にポンチョ・帽子を被せる: `blender --background --python tools/blender/add_outfit.py -- <リグ済み.glb> game/assets/traveler_outfit.glb <出力.glb>`
 - クラウド: Mixamo の FBX → .glb: `blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb`、中身の確認: `godot --headless --path game --script res://tools/inspect_glb.gd -- res://assets/traveler_mixamo.glb`
 - クラウド: マントを揺らす骨の差し込み: `blender --background --python tools/blender/add_cloth_bones.py -- game/assets/traveler_mixamo.glb game/assets/traveler_cloth.glb`（ゲームが読むのは `traveler_cloth.glb` のほう）
 - Web書き出しのコマンド: `bash tools/export-web.sh` → `build/web/`（約39MB、スレッド無効ビルド）

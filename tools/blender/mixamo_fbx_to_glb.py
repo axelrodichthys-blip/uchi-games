@@ -1,8 +1,12 @@
 # Mixamo からダウンロードした FBX（複数）を 1 つの .glb にまとめる。
 #
 # 使い方（ヘッドレス）:
-#   blender --background --python tools/blender/mixamo_fbx_to_glb.py -- <FBXのフォルダ> <出力.glb> [身長m]
-#   例: blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb
+#   blender --background --python tools/blender/mixamo_fbx_to_glb.py -- <FBXのフォルダ> <出力.glb> [身長m] [材質のもとOBJ]
+#   仮キャラ: blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo game/assets/traveler_mixamo.glb
+#   本キャラ: blender --background --python tools/blender/mixamo_fbx_to_glb.py -- docs/reference/mixamo_body \
+#               game/assets/traveler_rigged.glb 1.3000 docs/reference/character/traveler_body.obj
+#             （身長は build_traveler.py が書く docs/reference/character/traveler_body_height.txt の値。
+#               本キャラの素体には帽子が無いので 1.6 ではなくこの値を渡すこと）
 #
 # 前提:
 #   - フォルダ内に「With Skin」でダウンロードした FBX が 1 つ以上ある（メッシュ + リグ + アニメ）
@@ -81,6 +85,8 @@ REF_OBJ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "
 TARGET_HEIGHT = 1.6  # 帽子の先まで m。第 3 引数で上書きできる
 if len(argv) >= 3:
     TARGET_HEIGHT = float(argv[2])
+if len(argv) >= 4:
+    REF_OBJ = argv[3]   # 材質を復元するもとの OBJ（本キャラは traveler_body.obj）
 def obj_height(path):
     zmin, zmax = None, None
     with open(path) as f:
