@@ -34,8 +34,14 @@ TAU = math.tau
 #                    リグ用の素体は 40（既存 Mixamo リグの A ポーズと同じ）で出す。
 #                    腕はポンチョに隠れて見えないので、ゲーム中は角度が違っても分からない。
 #   UCHI_SUFFIX    … 出力名の後ろに付ける文字。指定すると素体だけを書き出す
+#   UCHI_RIG_PROXY … 1 にすると「Mixamo の自動リグを通すためだけの簡単な身体」を出す。
+#                    指・羽の突起・鞄を省き、手足を太くし、最後にボクセルで作り直して
+#                    **バラバラの部品をひとつながりの面にする**（自動リグが失敗する一番の原因を消す）。
+#                    ゲームに入るメッシュではない。骨とアニメだけをここから受け取る
 ARM_ANGLE_DEG = float(os.environ.get("UCHI_ARM_ANGLE", "18"))
 SUFFIX = os.environ.get("UCHI_SUFFIX", "")
+RIG_PROXY = os.environ.get("UCHI_RIG_PROXY", "") == "1"
+LIMB_R = 1.35 if RIG_PROXY else 1.0     # リグ用は手足を太くする（細いと自動リグが関節を見失う）
 
 # ---------------------------------------------------------------- 高さの表（m）
 # 確定ターンアラウンド 2 枚を画素で実測して作った表（測り方は tools/measure_reference.py）。
@@ -289,6 +295,8 @@ for i, (dx, length, ang, w) in enumerate([(-0.026, 0.070, 55.0, 0.012), (0.002, 
     base = pos(dx, -0.030, 1.245)
     t = math.radians(ang)
     tip = base + Vector((dx * 0.3, math.sin(t) * length, math.cos(t) * length))
+    if RIG_PROXY:
+        continue                       # リグ用では省く（頭の後ろの飛び出しは自動リグを惑わせる）
     capsule("Tuft%d" % i, w, base, tip, MAT_BODY, segments=6, caps=False)
     sphere("TuftTip%d" % i, w * 0.4, tip, MAT_BODY, segments=6, rings=4)
 # 目（縦長の楕円。目の帯 1.136〜1.192 に収める）
@@ -352,9 +360,10 @@ for sx in (-1.0, 1.0):
 
 # ---- 腰の後ろの鞄（柔らかい袋）
 bag_at = pos(0.050, -0.110, 0.690)
-sphere("Bag", 0.060, bag_at, MAT_LEATHER, scale=(0.88, 0.58, 0.96), segments=12, rings=8)
-box("BagFlap", (0.088, 0.044, 0.030), bag_at + Vector((0, -0.008, 0.050)), MAT_LEATHER)
-box("BagStrap", (0.022, 0.046, 0.058), bag_at + Vector((0, 0.024, 0.046)), MAT_LEATHER)
+if not RIG_PROXY:                       # リグ用では省く（腰の後ろの出っ張りは股の判定を惑わせる）
+    sphere("Bag", 0.060, bag_at, MAT_LEATHER, scale=(0.88, 0.58, 0.96), segments=12, rings=8)
+    box("BagFlap", (0.088, 0.044, 0.030), bag_at + Vector((0, -0.008, 0.050)), MAT_LEATHER)
+    box("BagStrap", (0.022, 0.046, 0.058), bag_at + Vector((0, 0.024, 0.046)), MAT_LEATHER)
 
 # ---- 腕（A ポーズ）と手袋（5 本指）。ポンチョの中に収まる長さ・角度にする
 ARM_ANGLE = math.radians(ARM_ANGLE_DEG)
@@ -366,12 +375,18 @@ for sx in (-1.0, 1.0):
     el = sh + d * UPPER_ARM
     wr = el + d * FORE_ARM
     sphere("Shoulder%s" % tag, 0.037, sh, MAT_BODY, segments=10, rings=6)
-    capsule("UpperArm%s" % tag, 0.027, sh, el, MAT_BODY, segments=10)
-    capsule("ForeArm%s" % tag, 0.024, el, wr, MAT_BODY, segments=10)
+    capsule("UpperArm%s" % tag, 0.027 * LIMB_R, sh, el, MAT_BODY, segments=10)
+    capsule("ForeArm%s" % tag, 0.024 * LIMB_R, el, wr, MAT_BODY, segments=10)
     # 手袋: カフス → 手のひら → 5 本指
     capsule("GloveCuff%s" % tag, 0.036, wr - d * 0.008, wr + d * 0.038, MAT_GLOVE, segments=12, caps=False)
     palm_c = wr + d * 0.072
     sphere("GlovePalm%s" % tag, 0.040, palm_c, MAT_GLOVE, scale=(1.0, 0.60, 1.0), segments=12, rings=8)
+    if RIG_PROXY:
+        # リグ用は「ミトン」ひとつにする。細い指は自動リグが失敗する原因になりやすく、
+        # 骨格 LOD を「指なし」にすれば指の骨も要らない
+        sphere("Mitten%s" % tag, 0.050, palm_c + d * 0.030, MAT_GLOVE,
+               scale=(1.0, 0.62, 1.0), segments=12, rings=8)
+        continue
     side = Vector((d.z, 0, -d.x)).normalized()     # 腕に直交する水平方向
     for k, (off, length) in enumerate([(-0.025, 0.040), (-0.009, 0.045), (0.009, 0.042), (0.024, 0.035)]):
         root = palm_c + side * (off * sx) + Vector((0, 0.006, 0))
@@ -386,8 +401,8 @@ for sx in (-1.0, 1.0):
     hip = pos(sx * 0.050, 0, HIP)
     knee = pos(sx * 0.088, 0, KNEE)
     ankle = pos(sx * LEG_X, 0, ANKLE)
-    capsule("Thigh%s" % tag, 0.031, hip, knee, MAT_BODY, segments=10)
-    capsule("Shin%s" % tag, 0.028, knee, ankle, MAT_BODY, segments=10)
+    capsule("Thigh%s" % tag, 0.031 * LIMB_R, hip, knee, MAT_BODY, segments=10)
+    capsule("Shin%s" % tag, 0.028 * LIMB_R, knee, ankle, MAT_BODY, segments=10)
     bx = sx * LEG_X
     # 筒（脚を包む）+ 折り返しのカフス
     # ブーツ: 底 → つま先の膨らみ → 足首 → 折り返しのカフス を 1 つの筒で作る
@@ -404,6 +419,20 @@ for sx in (-1.0, 1.0):
 
 body_parts = list(group)
 body = finish(body_parts, "TravelerBody")
+if RIG_PROXY:
+    # バラバラの部品（球・円柱・箱）をボクセルで作り直して、ひとつながりの面にする。
+    # Mixamo の自動リグは「分かれた部品の集まり」で失敗しやすいので、これが一番効く
+    mod = body.modifiers.new("Remesh", "REMESH")
+    mod.mode = "VOXEL"
+    mod.voxel_size = 0.013
+    mod.adaptivity = 0.0
+    bpy.ops.object.select_all(action="DESELECT")
+    body.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.shade_smooth()
+    print("[traveler] リグ用にボクセルで作り直した: 頂点 %d / 面 %d（ひとつながり）"
+          % (len(body.data.vertices), len(body.data.polygons)))
 print("[traveler] 素体: 頂点 %d / 面 %d" % (len(body.data.vertices), len(body.data.polygons)))
 
 # ================================================================ ポンチョ + 帽子（リグの後に被せる）
@@ -481,9 +510,11 @@ def check_height(obj, expected, label):
 body_h = check_height(body, BODY_HEIGHT, "素体（Mixamo に渡す姿）")
 check_height(outfit, FULL_HEIGHT - PONCHO_HEM, "ポンチョ+帽子")
 # Mixamo から戻ってきたモデルをこの高さに正規化する（mixamo_fbx_to_glb.py の第 3 引数）
-with open(os.path.join(OBJ_DIR, "traveler_body_height.txt"), "w") as f:
+# リグ用の簡単な身体は羽の突起が無いぶん低いので、本番の素体の高さを上書きしない
+_height_name = "traveler_rig_proxy_height.txt" if RIG_PROXY else "traveler_body_height.txt"
+with open(os.path.join(OBJ_DIR, _height_name), "w") as f:
     f.write("%.4f\n" % body_h)
-print("[traveler] Mixamo 変換に渡す身長: %.4f m（traveler_body_height.txt に保存）" % body_h)
+print("[traveler] Mixamo 変換に渡す身長: %.4f m（%s に保存）" % (body_h, _height_name))
 
 select_only([body])
 obj_path = os.path.join(OBJ_DIR, "traveler_body%s.obj" % SUFFIX)

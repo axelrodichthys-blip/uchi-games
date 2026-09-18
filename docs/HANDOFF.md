@@ -80,6 +80,37 @@
 - `bash tools/export-web.sh` → 44MB、headless Chromium で起動確認済み
 - 見た目は待機 / 歩き / 走り を四面図で確認済み（`CLIP=Walking bash tools/model-view.sh ...`）
 
+## Mixamo の自動リグが失敗する件（2026-09-18 最後）
+
+ユーザーが Mixamo で自動リグを試したところ、次の 2 つのエラーが出た:
+- `Oops! Please place all markers on the character!`（マーカーが身体の上に乗っていない）
+- `ERROR occured on rig: Unknown error while generating motion`
+
+### 分かったこと
+- 画面のマーカーを見ると、**手首（WRISTS）が肩の近く、肘（ELBOWS）が手の上**に置かれていた（取り違え）。
+  膝（KNEES）も脚と脚の間の空きに乗っている可能性がある（本キャラの脚は細い）
+- それとは別に、**今までのメッシュは球・円柱・箱がただ重なっているだけ**で、
+  Mixamo の自動リグはこの「バラバラの部品の集まり」が苦手
+
+### やったこと: リグ用の簡単な身体を用意した
+`docs/reference/character/traveler_body_rig_proxy.obj`（`UCHI_RIG_PROXY=1` で生成）
+- 指を省いてミトンひとつに / 頭の後ろの羽の突起と腰の鞄を省く / 手足を 1.35 倍に太く
+- **最後にボクセルで作り直して、ひとつながりの面にした**（これが一番効く）
+- **関節の位置は本物とまったく同じ**なので、出てくる骨はそのまま使える。
+  Claude が骨だけ受け取って本物のメッシュを貼り直すので、この身体がゲームに出ることはない
+
+**手順とマーカーの置き方の表は `docs/MIXAMO_GUIDE.md` の 6 章**（新規）。
+Skeleton LOD は **「No Fingers (25)」** を選ぶこと。
+
+届いたら Claude が流すコマンド:
+```bash
+blender --background --python tools/blender/mixamo_fbx_to_glb.py -- \
+  docs/reference/mixamo_body build/traveler_mixamo_new.glb \
+  "$(cat docs/reference/character/traveler_rig_proxy_height.txt)" \
+  docs/reference/character/traveler_body_rig_proxy.obj
+RIG_SRC=build/traveler_mixamo_new.glb bash tools/build-character.sh
+```
+
 ## 不具合 3 件を直し、飛行を入れました（2026-09-18 さらに後半）
 
 ### 直したこと

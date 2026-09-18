@@ -28,7 +28,8 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 | ファイル | 内容 |
 |---|---|
 | `tools/blender/build_traveler.py` | 本キャラのメッシュを組み立てる（bpy）。寸法は確定画像の実測値 |
-| `docs/reference/character/traveler_body_rig.obj` | **Mixamo にアップロードするのはこれ**（ポンチョ・帽子なし、腕を 40 度開いた A ポーズ） |
+| `docs/reference/character/traveler_body_rig_proxy.obj` | **Mixamo にアップロードするのはこれ**（下の「自動リグが失敗するとき」参照。指なし・ひとつながりの簡単な身体） |
+| `docs/reference/character/traveler_body_rig.obj` | 本物の素体（腕 40 度）。骨が付いたあと Claude がこちらを貼り直す |
 | `docs/reference/character/traveler_body.obj` | 同じ素体だが腕 18 度（ポンチョの中に手が収まる。見た目の確認用） |
 | `docs/reference/character/traveler_body_height.txt` | 上の高さ。変換時に渡す |
 | `game/assets/traveler_outfit.glb` | ポンチョ + 帽子。リグの後に被せる |
@@ -61,11 +62,12 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 ## 1. Mixamo にアップロード（ブラウザ）
 1. https://www.mixamo.com/ にアクセスし、Adobe アカウント（無料）でログイン
 2. 右上の **Upload Character** を押す
-3. GitHub の **`docs/reference/character/traveler_body_rig.obj`**（本キャラ。仮キャラのときは `traveler_apose.obj`）を開き、右上の Download（または Raw）で保存したファイルをドロップする
+3. GitHub の **`docs/reference/character/traveler_body_rig_proxy.obj`** を開き、右上の Download（または Raw）で保存したファイルをドロップする
    - 拡張子は .obj のまま（.mtl は不要）
 4. 自動リグ画面で、マーカーを図の通りに置く: **あご / 両手首 / 両肘 / 両膝 / 股**
    - 「Use Symmetry」をオンにする
-   - Skeleton LOD は「Standard Skeleton (65)」でよい
+   - **Skeleton LOD は「No Fingers (25)」を選ぶ**（本キャラの指はポンチョに隠れて見えないので指の骨は要らない。
+     指の骨を作ろうとして失敗するのが、自動リグのよくある失敗）
 5. Next → 数十秒待つ → 歩くプレビューが出れば成功
    - 失敗する（手足がねじれる）場合は、マーカーを置き直す。それでもだめなら Claude に伝える（メッシュの形を直す）
 
@@ -105,3 +107,56 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 - できる: 人間の歩き・走り・ジャンプ・振り向きの自然さ（モーションキャプチャなので本物の動き）
 - 一部: 動きの「つなぎ」の滑らかさは AnimationTree の作り込み次第。有名ゲームはここに専門チームを置いている
 - できない: そのゲーム固有のアニメの再現（著作物なので）。同系統の動きを Mixamo から選ぶ
+
+
+## 6. 自動リグが失敗するとき（2026-09-18 追記）
+
+Mixamo の自動リグは次の 2 つのエラーを出すことがある。
+
+| エラー | 意味 | 直し方 |
+|---|---|---|
+| `Oops! Please place all markers on the character!` | **どれかのマーカーが身体の上に乗っていない** | マーカーの丸の**中心**を、必ず身体の面の上に置く。下の「マーカーの置き方」を見る |
+| `ERROR occured on rig: Unknown error while generating motion` | 自動リグが人型として解釈できなかった | マーカーを直す → それでもだめなら**リグ用の簡単な身体**を使う（下） |
+
+### マーカーの置き方（本キャラ特有の注意）
+
+順番と色は Mixamo の左の一覧のとおり（**CHIN → WRISTS → ELBOWS → KNEES → GROIN**）。
+**ひとつずつ、どこに置くかを間違えないこと。** 特に手首と肘は取り違えやすい。
+
+| マーカー | 置く場所 | 本キャラでの目印 |
+|---|---|---|
+| **CHIN**（あご） | 頭の一番下、首の付け根 | 大きな丸い頭の**下端**。頭の真ん中ではない（頭が大きいので真ん中だと首が伸びる） |
+| **WRISTS**（手首） | **手の付け根** | 手（ミトン）のすぐ手前。**肩の近くではない** |
+| **ELBOWS**（肘） | **腕の真ん中** | 肩と手首のちょうど中間。**手の上ではない** |
+| **KNEES**（膝） | **脚の上**（左右それぞれ） | 脚は細いので、**脚と脚の間の空きに置かない**。それぞれの脚の線の上に正確に置く |
+| **GROIN**（股） | 股の中心 | 半ズボンの下端の真ん中あたり |
+
+「Use Symmetry」はオンのままでよい（左右が自動で揃う）。
+
+### それでも失敗するとき: リグ用の簡単な身体を使う
+
+`docs/reference/character/traveler_body_rig_proxy.obj` は **自動リグを通すためだけの身体**。
+
+- 指を省いてミトンひとつにした（細い指は失敗の原因）
+- 頭の後ろの羽の突起と、腰の後ろの鞄を省いた（人型の判定を惑わせる）
+- 手足を 1.35 倍に太くした（細いと関節を見失う）
+- **最後にボクセルで作り直して、バラバラの部品をひとつながりの面にした**（これが一番効く。
+  今までのメッシュは球や円柱がただ重なっているだけで、自動リグはこれが苦手）
+
+**関節の位置は本物の素体とまったく同じ**なので、ここから出てくる骨はそのまま使える。
+Claude が骨だけを受け取って、**本物のメッシュを貼り直す**（`retarget_rig.py`）ので、
+この簡単な身体がゲームに出ることはない。
+
+作り直すとき: `UCHI_ARM_ANGLE=40 UCHI_SUFFIX=_rig_proxy UCHI_RIG_PROXY=1 blender --background --python tools/blender/build_traveler.py`
+
+### 届いたあと Claude がやること（リグ用の身体を使った場合）
+
+```bash
+blender --background --python tools/blender/mixamo_fbx_to_glb.py -- \
+  docs/reference/mixamo_body build/traveler_mixamo_new.glb \
+  "$(cat docs/reference/character/traveler_rig_proxy_height.txt)" \
+  docs/reference/character/traveler_body_rig_proxy.obj
+RIG_SRC=build/traveler_mixamo_new.glb bash tools/build-character.sh
+```
+
+`retarget_rig.py` が簡単な身体を捨てて本物のメッシュを貼り、ポンチョと揺れの骨まで一気に通る。
