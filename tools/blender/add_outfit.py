@@ -23,6 +23,9 @@ from mathutils import Vector
 
 # ポンチョと帽子の境目（素体の高さ m。build_traveler.py の BRIM と揃える）
 HAT_SPLIT = 1.196
+# 素体の設計上の高さ。build_traveler.py が書く traveler_body_height.txt を読む（無ければこの値）
+HEIGHT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "..", "..", "docs", "reference", "character", "traveler_body_height.txt")
 # 高さを重みに割り当てる骨（下から順に）
 SPINE_BONES = ["Hips", "Spine", "Spine1", "Spine2", "Neck"]
 HEAD_BONE = "Head"
@@ -72,7 +75,12 @@ print("[outfit] 使う骨: %s / 頭 = %s"
 # 素体の高さ。build_traveler.py の基準（帽子の境目 HAT_SPLIT）を今の大きさに合わせる
 body_zs = [(body.matrix_world @ v.co).z for v in body.data.vertices]
 body_min, body_max = min(body_zs), max(body_zs)
-DESIGN_BODY_TOP = 1.300      # build_traveler.py の HEAD_TOP
+DESIGN_BODY_TOP = 1.3156     # build_traveler.py が出す素体の高さ（羽の突起の先まで）
+try:
+    with open(HEIGHT_FILE) as f:
+        DESIGN_BODY_TOP = float(f.read().strip())
+except Exception:
+    pass
 scale = (body_max - body_min) / DESIGN_BODY_TOP
 hat_split_z = body_min + HAT_SPLIT * scale
 print("[outfit] 素体の高さ %.4f m（設計 %.3f の %.3f 倍）→ 帽子とポンチョの境目 %.4f m"

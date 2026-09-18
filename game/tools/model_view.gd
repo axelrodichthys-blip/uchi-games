@@ -8,6 +8,8 @@ func _ready() -> void:
 	var out_base: String = args[0]
 	var model_path: String = args[1]
 	var height: float = float(args[2]) if args.size() > 2 else 1.6
+	var clip: String = args[3] if args.size() > 3 else ""      # アニメ名（空なら休めの姿勢）
+	var clip_t: float = float(args[4]) if args.size() > 4 else 0.0
 	var scene := load(model_path) as PackedScene
 	if scene == null:
 		push_error("読めない: %s" % model_path)
@@ -16,6 +18,15 @@ func _ready() -> void:
 	var model: Node3D = scene.instantiate()
 	add_child(model)
 	model.rotation.y = PI   # Blender からの .glb は +Z が前。Godot の前（-Z）に向ける
+	if clip != "":
+		var ap: AnimationPlayer = model.find_child("AnimationPlayer", true, false)
+		if ap and ap.has_animation(clip):
+			ap.play(clip)
+			ap.seek(clip_t, true)
+			ap.advance(0.0)
+			print("[model_view] アニメ %s の %.2f 秒" % [clip, clip_t])
+		else:
+			print("[model_view] アニメが無い: %s" % clip)
 
 	var key := DirectionalLight3D.new()
 	key.rotation_degrees = Vector3(-38, 28, 0)

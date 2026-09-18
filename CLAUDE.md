@@ -101,6 +101,10 @@ uchi-games/
 - クラウド: スクリーンショット: `bash tools/screenshot.sh build/shot.png [フレーム数] [walk|run|jump] [枚数] [間隔]`（xvfb + Mesa のソフトウェア描画。動作確認済み）。複数枚は `python3 tools/sheet.py build/shot build/sheet.png` で 1 枚に並べる（Pillow が必要: `pip install pillow`）
 - クラウド: スクリーンショットの開始位置・向き・Tuning の上書き: `UCHI_POS="x,y,z" UCHI_YAW=-90 UCHI_PITCH=-5 UCHI_TUNING="rain_amount=0.1" bash tools/screenshot.sh ...`（向きは動きの指定がある回だけ効く）、ワールド指定は `WORLD=res://scenes/worlds/gray/gray_world.tscn`
 - クラウド: アニメクリップ単体の確認: `bash tools/clip-view.sh build/clip Jump 0.0,0.2,0.4`（指定時刻のポーズを PNG に）
+- クラウド: **本キャラを作ってゲームに入れるまで一気に: `bash tools/build-character.sh`**（メッシュ → リグ合わせ → ポンチョ → 揺れの骨 → `game/assets/traveler_cloth.glb`）
+- クラウド: 既存リグを新しい素体に合わせ直す: `blender --background --python tools/blender/retarget_rig.py -- <既存リグ.glb> <素体.glb> <出力.glb>`（一様な拡大 + 上下移動だけ。関節を個別に動かすとアニメが壊れる）
+- クラウド: 足の接地判定の実測: `godot --headless --path game res://tools/foot_probe.tscn`（walk_test の「足音の回数」が NG になったらこれ）
+- クラウド: アニメのポーズを四面図で見る: `CLIP=Walking CLIP_T=0.35 bash tools/model-view.sh build/wk res://assets/traveler_cloth.glb 1.6`
 - クラウド: 本キャラのメッシュ生成: `blender --background --python tools/blender/build_traveler.py`（素体 `docs/reference/character/traveler_body.obj` + ポンチョ帽子 `game/assets/traveler_outfit.glb` + 確認用 `traveler_preview.glb`）
 - クラウド: 基準画像の実測: `python3 tools/measure_reference.py docs/reference/character/traveler_turnaround_poncho.png`
 - クラウド: .glb を四面図で見比べる: `bash tools/model-view.sh build/full res://assets/traveler_preview.glb 1.6` → `python3 tools/sheet.py build/full build/sheet.png`（順は 正面 / 左側面 / 背面 / 右側面。基準画像と同じ並び）

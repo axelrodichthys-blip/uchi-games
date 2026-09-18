@@ -28,7 +28,8 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 | ファイル | 内容 |
 |---|---|
 | `tools/blender/build_traveler.py` | 本キャラのメッシュを組み立てる（bpy）。寸法は確定画像の実測値 |
-| `docs/reference/character/traveler_body.obj` | **Mixamo にアップロードするのはこれ**（ポンチョ・帽子なし、A ポーズ、高さ 1.30 m） |
+| `docs/reference/character/traveler_body_rig.obj` | **Mixamo にアップロードするのはこれ**（ポンチョ・帽子なし、腕を 40 度開いた A ポーズ） |
+| `docs/reference/character/traveler_body.obj` | 同じ素体だが腕 18 度（ポンチョの中に手が収まる。見た目の確認用） |
 | `docs/reference/character/traveler_body_height.txt` | 上の高さ。変換時に渡す |
 | `game/assets/traveler_outfit.glb` | ポンチョ + 帽子。リグの後に被せる |
 | `game/assets/traveler_preview.glb` | 完成形（見た目の確認用。ゲームでは読まない） |
@@ -45,17 +46,22 @@ Ghost of Tsushima や RE4 のような動きは、俳優のモーションキャ
 5. `blender --background --python tools/blender/add_cloth_bones.py -- game/assets/traveler_dressed.glb game/assets/traveler_cloth.glb`
    （ゲームが読むのは `traveler_cloth.glb`。ここまで来れば差し替え完了）
 
+> **2026-09-18 の状況**: Mixamo を待たずに済むよう、**既存の仮キャラのリグを本キャラの寸法に合わせ直して
+> 流用した暫定版がすでにゲームに入っている**（`tools/blender/retarget_rig.py`、`bash tools/build-character.sh`）。
+> 歩く・走る・跳ぶは動く。Mixamo の本番リグが来たら上の 3 を差し替えるだけで本番に切り替わる。
+> 本番リグのほうが良い点: 本キャラの体型に合った骨の比率（今は膝・胸・首・頭が少しずれている）。
+
 自動リグのマーカーを置くときの注意（本キャラ特有）:
 - **あごは首の付け根**に置く。頭が大きいので、頭の真ん中に置くと首が伸びる
 - 手は手袋の**手のひらの中心**、手首は**カフスの位置**
 - 膝はほぼ出っ張りが無いので、脚の**真ん中より少し下**に置く
-- 腕の開きは 21 度と浅め（ポンチョに収めるため）。Mixamo が腕を胴と誤認したら、
-  `build_traveler.py` の `ARM_ANGLE` を 30 度に上げて作り直す（ポンチョから手が少し出るが、リグ優先）
+- アップロードする `traveler_body_rig.obj` は腕を **40 度**開いてある（自動リグが腕を胴と誤認しないように）。
+  ポンチョから手が出る姿だが、リグに渡すだけなので問題ない（ゲーム中の腕はアニメで体側に降りる）
 
 ## 1. Mixamo にアップロード（ブラウザ）
 1. https://www.mixamo.com/ にアクセスし、Adobe アカウント（無料）でログイン
 2. 右上の **Upload Character** を押す
-3. GitHub の **`docs/reference/character/traveler_body.obj`**（本キャラ。仮キャラのときは `traveler_apose.obj`）を開き、右上の Download（または Raw）で保存したファイルをドロップする
+3. GitHub の **`docs/reference/character/traveler_body_rig.obj`**（本キャラ。仮キャラのときは `traveler_apose.obj`）を開き、右上の Download（または Raw）で保存したファイルをドロップする
    - 拡張子は .obj のまま（.mtl は不要）
 4. 自動リグ画面で、マーカーを図の通りに置く: **あご / 両手首 / 両肘 / 両膝 / 股**
    - 「Use Symmetry」をオンにする

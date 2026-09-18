@@ -24,10 +24,11 @@ const LOOPING := ["Idle", "Walking", "Running", "FallingIdle", "LookAround", "Wa
 const AIR_CLIPS := ["Jump", "FallingIdle", "Landing"]
 const FOOT_BONES := ["mixamorig_LeftFoot", "mixamorig_RightFoot"]
 const ARM_BONE_KEYS := ["Shoulder", "Arm", "ForeArm", "Hand"]   # 腕の骨（トラックのパスにこの語を含む）
-const FOOT_DOWN := 0.168       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
-const FOOT_UP := 0.186         # この高さを超えたら「持ち上がった」（ヒステリシス）
-# ↑ 身長 1.6m の歩きでの足首の実測は 0.153〜0.207m。上下とも余裕を取って内側に置く
-# （身長を変えたら実測し直す。walk_test の「足音の回数」で気づける）
+const FOOT_DOWN := 0.208       # 足首の骨がこの高さ（m、キャラの足元基準）を下回ったら接地
+const FOOT_UP := 0.226         # この高さを超えたら「持ち上がった」（ヒステリシス）
+# ↑ 本キャラ（2026-09-18）の歩きでの足首の実測は 0.193〜0.250m。上下とも余裕を取って内側に置く
+# 実測は `godot --headless --path game res://tools/foot_probe.tscn` で出せる。
+# （モデルや身長を変えたら測り直す。walk_test の「足音の回数」が NG になったら大抵これ）
 
 ## 足が地面に着いた。side: 0 = 左 / 1 = 右、strength: 0〜1（速いほど・落下が強いほど大）
 signal footstep(side: int, strength: float)
@@ -150,16 +151,7 @@ func _build_tree() -> void:
 	var idle_arms := AnimationNodeAnimation.new()
 	idle_arms.animation = "Idle"
 	bt.add_node("idle_arms", idle_arms)
-	var arms := AnimationNodeBlend2.new()
-	arms.filter_enabled = true
-	var idle_anim := _player.get_animation("Idle")
-	for i in idle_anim.get_track_count():
-		var path := str(idle_anim.track_get_path(i))
-		var bone := path.get_slice(":", 1)
-		for key in ARM_BONE_KEYS:
-			if bone.ends_with(key):
-				arms.set_filter_path(idle_anim.track_get_path(i), true)
-				break
+	var arms := _make_arm_blend()
 	bt.add_node("arms", arms)
 	bt.connect_node("arms", 0, "fwd_back")
 	bt.connect_node("arms", 1, "idle_arms")
@@ -196,7 +188,17 @@ func _build_tree() -> void:
 	bt.connect_node("state", 2, "fall")
 	bt.connect_node("state", 3, "seek_land")
 	bt.connect_node("state", 4, "seek_climb")
-	bt.connect_node("output", 0, "state")
+	# ポンチョの中に腕を収める: ジャンプ・落下・着地でも腕だけ待機ポーズにする。
+	# 本キャラは「腕はポンチョの中に隠れて見えない」設計（GAME_DESIGN 2026-09-17）なので、
+	# クリップのまま腕を振るとポンチョを突き抜ける。F1 の arm_swing で「クリップ通り」に戻せる。
+	var idle_arms_all := AnimationNodeAnimation.new()
+	idle_arms_all.animation = "Idle"
+	bt.add_node("idle_arms_all", idle_arms_all)
+	var arms_all := _make_arm_blend()
+	bt.add_node("arms_all", arms_all)
+	bt.connect_node("arms_all", 0, "state")
+	bt.connect_node("arms_all", 1, "idle_arms_all")
+	bt.connect_node("output", 0, "arms_all")
 
 	_tree = AnimationTree.new()
 	_tree.name = "AnimationTree"
@@ -208,6 +210,20 @@ func _build_tree() -> void:
 	_tree.set("parameters/state/transition_request", "ground")
 	_tree.set("parameters/ts_jump/scale", JUMP_SCALE)
 	_tree.set("parameters/ts_climb/scale", CLIMB_SCALE)
+
+
+## 腕の骨だけを差し替えるための Blend2 を作る（腕のトラックにフィルタを立てる）
+func _make_arm_blend() -> AnimationNodeBlend2:
+	var node := AnimationNodeBlend2.new()
+	node.filter_enabled = true
+	var idle_anim := _player.get_animation("Idle")
+	for i in idle_anim.get_track_count():
+		var bone := str(idle_anim.track_get_path(i)).get_slice(":", 1)
+		for key in ARM_BONE_KEYS:
+			if bone.ends_with(key):
+				node.set_filter_path(idle_anim.track_get_path(i), true)
+				break
+	return node
 
 
 ## よじ登りの開始 / 終了（player.gd から）
@@ -251,7 +267,9 @@ func update_motion(speed: float, on_floor: bool, vertical_velocity: float, yaw_r
 	_tree.set("parameters/idle_move/blend_amount", _move)
 	var cur_arms: float = _tree.get("parameters/arms/blend_amount")
 	var want_arms := 0.0 if int(Tuning.arm_swing) == 1 else 1.0
-	_tree.set("parameters/arms/blend_amount", lerpf(cur_arms, want_arms, clampf(6.0 * delta, 0.0, 1.0)))
+	var next_arms := lerpf(cur_arms, want_arms, clampf(6.0 * delta, 0.0, 1.0))
+	_tree.set("parameters/arms/blend_amount", next_arms)
+	_tree.set("parameters/arms_all/blend_amount", next_arms)   # ジャンプ中もポンチョから腕を出さない
 
 	# 長く立ち止まると見回す
 	if _move < 0.05 and on_floor:

@@ -32,6 +32,14 @@ os.makedirs(OBJ_DIR, exist_ok=True)
 
 TAU = math.tau
 
+# 環境変数で上書きできるもの
+#   UCHI_ARM_ANGLE … 腕の開き（度）。既定 18 はポンチョの中に手が収まる角度。
+#                    リグ用の素体は 40（既存 Mixamo リグの A ポーズと同じ）で出す。
+#                    腕はポンチョに隠れて見えないので、ゲーム中は角度が違っても分からない。
+#   UCHI_SUFFIX    … 出力名の後ろに付ける文字。指定すると素体だけを書き出す
+ARM_ANGLE_DEG = float(os.environ.get("UCHI_ARM_ANGLE", "18"))
+SUFFIX = os.environ.get("UCHI_SUFFIX", "")
+
 # ---------------------------------------------------------------- 高さの表（m）
 # 確定ターンアラウンド 2 枚を画素で実測して作った表（測り方は tools/measure_reference.py）。
 # 2 枚は別々に生成したので寸法が完全には揃っていないが、**目の帯（襟の上〜つばの下）がぴたり一致する**。
@@ -343,7 +351,7 @@ box("BagFlap", (0.088, 0.044, 0.030), bag_at + Vector((0, -0.008, 0.050)), MAT_L
 box("BagStrap", (0.022, 0.046, 0.058), bag_at + Vector((0, 0.024, 0.046)), MAT_LEATHER)
 
 # ---- 腕（A ポーズ）と手袋（5 本指）。ポンチョの中に収まる長さ・角度にする
-ARM_ANGLE = math.radians(18.0)
+ARM_ANGLE = math.radians(ARM_ANGLE_DEG)
 UPPER_ARM, FORE_ARM = 0.190, 0.160
 for sx in (-1.0, 1.0):
     tag = "L" if sx > 0 else "R"
@@ -456,18 +464,21 @@ with open(os.path.join(OBJ_DIR, "traveler_body_height.txt"), "w") as f:
 print("[traveler] Mixamo 変換に渡す身長: %.4f m（traveler_body_height.txt に保存）" % body_h)
 
 select_only([body])
-obj_path = os.path.join(OBJ_DIR, "traveler_body.obj")
+obj_path = os.path.join(OBJ_DIR, "traveler_body%s.obj" % SUFFIX)
 bpy.ops.wm.obj_export(filepath=obj_path, export_selected_objects=True,
                       forward_axis="NEGATIVE_Z", up_axis="Y", export_materials=True)
-bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_body.glb"),
+bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_body%s.glb" % SUFFIX),
                           use_selection=True, export_format="GLB", export_yup=True)
 
-select_only([outfit])
-bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_outfit.glb"),
-                          use_selection=True, export_format="GLB", export_yup=True)
-
-select_only([body, outfit])
-bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_preview.glb"),
-                          use_selection=True, export_format="GLB", export_yup=True)
-
-print("[traveler] 書き出し: %s / traveler_body.glb / traveler_outfit.glb / traveler_preview.glb" % obj_path)
+if SUFFIX:
+    # リグ用の素体だけを出す回。ポンチョ・帽子と完成形は既定の回で出しているので触らない
+    print("[traveler] 腕の開き %.0f 度で素体だけ書き出し: %s / traveler_body%s.glb"
+          % (ARM_ANGLE_DEG, obj_path, SUFFIX))
+else:
+    select_only([outfit])
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_outfit.glb"),
+                              use_selection=True, export_format="GLB", export_yup=True)
+    select_only([body, outfit])
+    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT_DIR, "traveler_preview.glb"),
+                              use_selection=True, export_format="GLB", export_yup=True)
+    print("[traveler] 書き出し: %s / traveler_body.glb / traveler_outfit.glb / traveler_preview.glb" % obj_path)
